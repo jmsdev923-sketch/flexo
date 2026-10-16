@@ -1,0 +1,21 @@
+{
+  "name": "flex-analytics",
+  "version": "1.0.0",
+  "description": "Enterprise-grade web pivot table and data analytics engine inspired by Flexmonster",
+  "main": "server/index.js",
+  "scripts": {
+    "server": "node server/index.js",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install:all": "npm install && npm install --prefix client"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "csv-parser": "^3.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

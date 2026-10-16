@@ -1,0 +1,17 @@
+region,country,category,subCategory,quarter,year,sales,profit,quantity
+América Latina,Colombia,Electrónica,Computadores,Q1,2025,15400,3200,12
+América Latina,Colombia,Electrónica,Accesorios,Q1,2025,4200,1100,35
+América Latina,Colombia,Mobiliario,Sillas Ergonómicas,Q2,2025,6800,1850,16
+América Latina,México,Electrónica,Computadores,Q1,2025,28900,6400,22
+América Latina,México,Electrónica,Servidores,Q2,2025,45000,11200,6
+América Latina,México,Mobiliario,Escritorios,Q3,2025,9500,2300,19
+Norteamérica,Estados Unidos,Electrónica,Computadores,Q1,2025,64000,18500,50
+Norteamérica,Estados Unidos,Electrónica,Servidores,Q2,2025,89000,24000,14
+Norteamérica,Estados Unidos,Mobiliario,Sillas Ergonómicas,Q3,2025,18000,4900,42
+Europa,España,Electrónica,Computadores,Q1,2025,32000,7800,25
+Europa,España,Mobiliario,Escritorios,Q2,2025,12400,3100,28
+Europa,Alemania,Electrónica,Servidores,Q1,2025,76000,21000,11
+Europa,Alemania,Electrónica,Accesorios,Q3,2025,8400,2500,90
+América Latina,Colombia,Electrónica,Computadores,Q1,2026,19500,4100,15
+América Latina,México,Electrónica,Computadores,Q1,2026,34000,8200,26
+Norteamérica,Estados Unidos,Electrónica,Servidores,Q1,2026,95000,27500,16

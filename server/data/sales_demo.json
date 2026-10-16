@@ -1,0 +1,18 @@
+[
+  { "id": 1, "region": "América Latina", "country": "Colombia", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2025", "sales": 15400, "profit": 3200, "quantity": 12 },
+  { "id": 2, "region": "América Latina", "country": "Colombia", "category": "Electrónica", "subCategory": "Accesorios", "quarter": "Q1", "year": "2025", "sales": 4200, "profit": 1100, "quantity": 35 },
+  { "id": 3, "region": "América Latina", "country": "Colombia", "category": "Mobiliario", "subCategory": "Sillas Ergonómicas", "quarter": "Q2", "year": "2025", "sales": 6800, "profit": 1850, "quantity": 16 },
+  { "id": 4, "region": "América Latina", "country": "México", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2025", "sales": 28900, "profit": 6400, "quantity": 22 },
+  { "id": 5, "region": "América Latina", "country": "México", "category": "Electrónica", "subCategory": "Servidores", "quarter": "Q2", "year": "2025", "sales": 45000, "profit": 11200, "quantity": 6 },
+  { "id": 6, "region": "América Latina", "country": "México", "category": "Mobiliario", "subCategory": "Escritorios", "quarter": "Q3", "year": "2025", "sales": 9500, "profit": 2300, "quantity": 19 },
+  { "id": 7, "region": "Norteamérica", "country": "Estados Unidos", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2025", "sales": 64000, "profit": 18500, "quantity": 50 },
+  { "id": 8, "region": "Norteamérica", "country": "Estados Unidos", "category": "Electrónica", "subCategory": "Servidores", "quarter": "Q2", "year": "2025", "sales": 89000, "profit": 24000, "quantity": 14 },
+  { "id": 9, "region": "Norteamérica", "country": "Estados Unidos", "category": "Mobiliario", "subCategory": "Sillas Ergonómicas", "quarter": "Q3", "year": "2025", "sales": 18000, "profit": 4900, "quantity": 42 },
+  { "id": 10, "region": "Europa", "country": "España", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2025", "sales": 32000, "profit": 7800, "quantity": 25 },
+  { "id": 11, "region": "Europa", "country": "España", "category": "Mobiliario", "subCategory": "Escritorios", "quarter": "Q2", "year": "2025", "sales": 12400, "profit": 3100, "quantity": 28 },
+  { "id": 12, "region": "Europa", "country": "Alemania", "category": "Electrónica", "subCategory": "Servidores", "quarter": "Q1", "year": "2025", "sales": 76000, "profit": 21000, "quantity": 11 },
+  { "id": 13, "region": "Europa", "country": "Alemania", "category": "Electrónica", "subCategory": "Accesorios", "quarter": "Q3", "year": "2025", "sales": 8400, "profit": 2500, "quantity": 90 },
+  { "id": 14, "region": "América Latina", "country": "Colombia", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2026", "sales": 19500, "profit": 4100, "quantity": 15 },
+  { "id": 15, "region": "América Latina", "country": "México", "category": "Electrónica", "subCategory": "Computadores", "quarter": "Q1", "year": "2026", "sales": 34000, "profit": 8200, "quantity": 26 },
+  { "id": 16, "region": "Norteamérica", "country": "Estados Unidos", "category": "Electrónica", "subCategory": "Servidores", "quarter": "Q1", "year": "2026", "sales": 95000, "profit": 27500, "quantity": 16 }
+]
