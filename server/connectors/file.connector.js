@@ -89,37 +89,161 @@ class FileConnector extends BaseConnector {
       return { fields: [] };
     }
 
-    const sample = data[0];
-    const fields = Object.keys(sample).map(key => {
+    const sampleLimit = Math.min(data.length, 100);
+    const firstRowKeys = Object.keys(data[0]);
+
+    const fields = firstRowKeys.map(key => {
+      let sampleVal = null;
+      for (let i = 0; i < sampleLimit; i++) {
+        const v = data[i][key];
+        if (v !== null && v !== undefined && v !== '') {
+          sampleVal = v;
+          break;
+        }
+      }
+
       let type = 'string';
-      const val = sample[key];
-      if (typeof val === 'number') {
+      if (typeof sampleVal === 'number') {
         type = 'number';
-      } else if (typeof val === 'boolean') {
+      } else if (typeof sampleVal === 'boolean') {
         type = 'boolean';
-      } else if (!isNaN(Date.parse(val)) && typeof val === 'string' && val.length > 7 && (val.includes('-') || val.includes('/'))) {
+      } else if (
+        sampleVal !== null &&
+        typeof sampleVal === 'string' &&
+        sampleVal.length >= 8 &&
+        sampleVal.length <= 35 &&
+        (sampleVal.includes('-') || sampleVal.includes('/')) &&
+        !isNaN(Date.parse(sampleVal))
+      ) {
         type = 'date';
-      } else if (!isNaN(Number(val)) && val !== '' && val !== null) {
+      } else if (sampleVal !== null && !isNaN(Number(sampleVal)) && sampleVal !== '') {
         type = 'number';
       }
+
       return { name: key, type };
     });
 
     return { fields };
   }
 
+  _detectDelimiter(firstLine) {
+    if (!firstLine) return ',';
+    const clean = firstLine.charCodeAt(0) === 0xFEFF ? firstLine.slice(1) : firstLine;
+    const candidates = [';', ',', '\t', '|'];
+    const counts = { ';': 0, ',': 0, '\t': 0, '|': 0 };
+    let inQuotes = false;
+
+    for (let i = 0; i < clean.length; i++) {
+      const char = clean[i];
+      if (char === '"') {
+        if (inQuotes && clean[i + 1] === '"') {
+          i++; // skip escaped quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (!inQuotes && counts[char] !== undefined) {
+        counts[char]++;
+      }
+    }
+
+    let bestDelim = ',';
+    let maxCount = 0;
+    for (const delim of candidates) {
+      if (counts[delim] > maxCount) {
+        maxCount = counts[delim];
+        bestDelim = delim;
+      }
+    }
+    return bestDelim;
+  }
+
+  _parseCSVLine(line, delimiter) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === delimiter && !inQuotes) {
+        values.push(current);
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current);
+    return values;
+  }
+
+  _parseValue(val, delimiter) {
+    if (val === undefined || val === null) return null;
+    let trimmed = String(val).trim();
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      trimmed = trimmed.slice(1, -1).replace(/""/g, '"').trim();
+    }
+    if (trimmed === '') return null;
+
+    // Spanish / European format with thousand dots and comma decimal e.g. 1.234.567,89 or -1.234,50
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(trimmed)) {
+      const normalized = trimmed.replace(/\./g, '').replace(',', '.');
+      const num = parseFloat(normalized);
+      if (!isNaN(num)) return num;
+    }
+
+    // US format with thousand commas and dot decimal e.g. 1,234,567.89 or -1,234.50
+    if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(trimmed)) {
+      const normalized = trimmed.replace(/,/g, '');
+      const num = parseFloat(normalized);
+      if (!isNaN(num)) return num;
+    }
+
+    // Comma decimal without thousand dots e.g. -6285714,29 or 8,5
+    if (/^-?\d+,\d+$/.test(trimmed)) {
+      const num = parseFloat(trimmed.replace(',', '.'));
+      if (!isNaN(num)) return num;
+    }
+
+    // Standard integer or dot decimal e.g. -50, 758, 123.45
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const num = Number(trimmed);
+      if (!isNaN(num)) return num;
+    }
+
+    return trimmed;
+  }
+
   _parseCSVString(csvText) {
     const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
     if (lines.length === 0) return [];
-    const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+
+    let headerLine = lines[0];
+    if (headerLine.charCodeAt(0) === 0xFEFF) {
+      headerLine = headerLine.slice(1);
+    }
+
+    const delimiter = this._detectDelimiter(headerLine);
+    const rawHeaders = this._parseCSVLine(headerLine, delimiter);
+    const headers = rawHeaders.map((h, idx) => {
+      let clean = h.trim();
+      if (clean.startsWith('"') && clean.endsWith('"')) {
+        clean = clean.slice(1, -1).trim();
+      }
+      return clean || `col_${idx + 1}`;
+    });
+
     return lines.slice(1).map(line => {
-      const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-      const cleanValues = values.map(v => v.replace(/^"|"$/g, '').trim());
+      const rawValues = this._parseCSVLine(line, delimiter);
       const row = {};
-      headers.forEach((h, i) => {
-        const raw = cleanValues[i];
-        row[h] = (!isNaN(Number(raw)) && raw !== '') ? Number(raw) : raw;
-      });
+      for (let i = 0; i < headers.length; i++) {
+        row[headers[i]] = this._parseValue(rawValues[i], delimiter);
+      }
       return row;
     });
   }
@@ -131,26 +255,34 @@ class FileConnector extends BaseConnector {
       const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
       let headers = null;
+      let delimiter = ',';
 
       rl.on('line', (line) => {
         if (!line.trim()) return;
-        const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-        const cleanValues = values.map(v => v.replace(/^"|"$/g, '').trim());
 
         if (!headers) {
-          headers = cleanValues;
-        } else {
-          const row = {};
-          headers.forEach((h, i) => {
-            const raw = cleanValues[i] !== undefined ? cleanValues[i] : null;
-            if (raw !== null && !isNaN(Number(raw)) && raw !== '') {
-              row[h] = Number(raw);
-            } else {
-              row[h] = raw;
+          let headerLine = line;
+          if (headerLine.charCodeAt(0) === 0xFEFF) {
+            headerLine = headerLine.slice(1);
+          }
+          delimiter = this._detectDelimiter(headerLine);
+          const rawHeaders = this._parseCSVLine(headerLine, delimiter);
+          headers = rawHeaders.map((h, idx) => {
+            let clean = h.trim();
+            if (clean.startsWith('"') && clean.endsWith('"')) {
+              clean = clean.slice(1, -1).trim();
             }
+            return clean || `col_${idx + 1}`;
           });
-          results.push(row);
+          return;
         }
+
+        const values = this._parseCSVLine(line, delimiter);
+        const row = {};
+        for (let i = 0; i < headers.length; i++) {
+          row[headers[i]] = this._parseValue(values[i], delimiter);
+        }
+        results.push(row);
       });
 
       rl.on('close', () => resolve(results));

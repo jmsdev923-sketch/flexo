@@ -17,7 +17,13 @@ export function DashboardCombinedView({
   conditionalRules = [],
   tableStyle = 'classic_grid',
   chartStyle = 'bar_vertical',
-  onChartStyleChange
+  onChartStyleChange,
+  slice,
+  onSliceChange,
+  fields = [],
+  tableTitle,
+  onClearTable,
+  onDuplicateTable
 }) {
   if (!pivotResult || !pivotResult.matrix || pivotResult.matrix.length === 0) {
     return (
@@ -56,7 +62,12 @@ export function DashboardCombinedView({
         return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val)}%`;
       }
       if (currencyFormat) {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        return new Intl.NumberFormat('es-CO', {
+          style: 'currency',
+          currency: 'COP',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: val % 1 === 0 ? 0 : 2
+        }).format(val);
       }
       return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(val);
     }
@@ -184,12 +195,18 @@ export function DashboardCombinedView({
 
       case 'table':
         return (
-          <div style={{ maxHeight: '340px', overflowY: 'auto' }}>
+          <div style={{ width: '100%' }}>
             <PivotGrid
+              title={tableTitle}
+              slice={slice}
+              onSliceChange={onSliceChange}
               pivotResult={pivotResult}
               currencyFormat={currencyFormat}
               conditionalRules={conditionalRules}
               tableStyle={tableStyle}
+              fields={fields}
+              onClearTable={onClearTable}
+              onDuplicateTable={onDuplicateTable}
             />
           </div>
         );

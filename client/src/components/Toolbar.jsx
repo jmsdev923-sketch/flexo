@@ -204,9 +204,9 @@ export function Toolbar({
         <button
           className="btn btn-secondary"
           onClick={onToggleCurrency}
-          title="Alternar formato numérico / moneda ($)"
+          title="Alternar formato: Peso Colombiano (COP $) / Numérico estándar"
         >
-          <span>{currencyFormat ? '💵 ($)' : '🔢 (Num)'}</span>
+          <span>{currencyFormat ? '💵 COP ($)' : '🔢 (Num)'}</span>
         </button>
 
         <div style={{ height: '20px', width: '1px', backgroundColor: '#334155', margin: '0 4px' }} />

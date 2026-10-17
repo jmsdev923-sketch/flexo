@@ -52,40 +52,62 @@ class PivotEngine {
 
     const validMeasures = measures.length > 0 ? measures : [{ field: Object.keys(filteredData[0])[0], aggregation: 'count' }];
 
-    // 2. Discover Unique Column & Row Combinations
+    // 2. Discover Unique Column & Row Combinations & Hierarchy Levels
     const colKeysMap = new Map();
-    const rowKeysMap = new Map();
     const cellBuckets = new Map();
+    const hierarchyNodesMap = new Map();
+
+    const levelsCount = Math.max(rows.length, 1);
 
     for (const record of filteredData) {
       const rowKeyParts = rows.length > 0 ? rows.map(r => String(record[r] ?? '(blank)')) : ['Total'];
       const colKeyParts = columns.length > 0 ? columns.map(c => String(record[c] ?? '(blank)')) : ['Total'];
 
-      const rowKey = rowKeyParts.join(' >>>> ');
       const colKey = colKeyParts.join(' >>>> ');
-
-      if (!rowKeysMap.has(rowKey)) rowKeysMap.set(rowKey, rowKeyParts);
       if (!colKeysMap.has(colKey)) colKeysMap.set(colKey, colKeyParts);
 
-      // Store cell values per measure
-      validMeasures.forEach((m, mIdx) => {
-        const bucketKey = `${rowKey}####${colKey}####${mIdx}`;
-        if (!cellBuckets.has(bucketKey)) cellBuckets.set(bucketKey, []);
+      // Register and bucket for each hierarchical level (Level 0 ... N-1)
+      for (let lvl = 0; lvl < levelsCount; lvl++) {
+        const prefixParts = rowKeyParts.slice(0, lvl + 1);
+        const prefixKey = prefixParts.join(' >>>> ');
+        const parentKey = lvl === 0 ? null : rowKeyParts.slice(0, lvl).join(' >>>> ');
 
-        if (m.aggregation === 'calc' && m.formula) {
-          // Store raw record for row-level formula evaluation
-          cellBuckets.get(bucketKey).push(record);
-        } else {
-          const val = record[m.field];
-          if (val !== undefined && val !== null) {
-            const num = typeof val === 'number' ? val : Number(val);
-            cellBuckets.get(bucketKey).push(isNaN(num) ? val : num);
-          }
+        if (!hierarchyNodesMap.has(prefixKey)) {
+          hierarchyNodesMap.set(prefixKey, {
+            key: prefixKey,
+            parentKey,
+            rowParts: prefixParts,
+            level: lvl,
+            label: rowKeyParts[lvl],
+            dimension: rows[lvl] || 'Total',
+            isLeaf: lvl === levelsCount - 1,
+            hasChildren: lvl < levelsCount - 1,
+            childrenKeys: new Set()
+          });
         }
-      });
+
+        if (parentKey && hierarchyNodesMap.has(parentKey)) {
+          hierarchyNodesMap.get(parentKey).childrenKeys.add(prefixKey);
+        }
+
+        // Store cell values per measure at this level
+        validMeasures.forEach((m, mIdx) => {
+          const bucketKey = `${prefixKey}####${colKey}####${mIdx}`;
+          if (!cellBuckets.has(bucketKey)) cellBuckets.set(bucketKey, []);
+
+          if (m.aggregation === 'calc' && m.formula) {
+            cellBuckets.get(bucketKey).push(record);
+          } else {
+            const val = record[m.field];
+            if (val !== undefined && val !== null) {
+              const num = typeof val === 'number' ? val : Number(val);
+              cellBuckets.get(bucketKey).push(isNaN(num) ? val : num);
+            }
+          }
+        });
+      }
     }
 
-    const sortedRowKeys = Array.from(rowKeysMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     const sortedColKeys = Array.from(colKeysMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
     // Build Column Definitions
@@ -104,55 +126,96 @@ class PivotEngine {
       });
     });
 
-    // Compute Matrix
-    const matrix = [];
-    sortedRowKeys.forEach(([rowKey, rowParts]) => {
+    // Helper to compute node metrics
+    const computeNodeMetrics = (node) => {
       const rowValues = [];
       columnDefinitions.forEach(colDef => {
-        const bucketKey = `${rowKey}####${colDef.colKey}####${colDef.measureIndex}`;
+        const bucketKey = `${node.key}####${colDef.colKey}####${colDef.measureIndex}`;
         const valuesList = cellBuckets.get(bucketKey) || [];
-        const aggResult = this.computeAggregation(valuesList, colDef.measure);
-        rowValues.push(aggResult);
+        rowValues.push(this.computeAggregation(valuesList, colDef.measure));
       });
 
-      // Calculate Row Totals
       const rowTotalsByMeasure = validMeasures.map((m, mIdx) => {
         const allRowValues = [];
         sortedColKeys.forEach(([cKey]) => {
-          const list = cellBuckets.get(`${rowKey}####${cKey}####${mIdx}`) || [];
+          const list = cellBuckets.get(`${node.key}####${cKey}####${mIdx}`) || [];
           allRowValues.push(...list);
         });
         return this.computeAggregation(allRowValues, m);
       });
 
-      matrix.push({
-        rowKey,
-        rowParts,
-        values: rowValues,
-        rowTotals: rowTotalsByMeasure
-      });
-    });
+      return { rowValues, rowTotalsByMeasure };
+    };
 
-    // Compute Grand Totals
-    const grandTotals = columnDefinitions.map(colDef => {
-      const allColValues = [];
-      sortedRowKeys.forEach(([rKey]) => {
-        const list = cellBuckets.get(`${rKey}####${colDef.colKey}####${colDef.measureIndex}`) || [];
-        allColValues.push(...list);
-      });
-      return this.computeAggregation(allColValues, colDef.measure);
+    // Calculate metrics for all nodes in the hierarchy
+    for (const node of hierarchyNodesMap.values()) {
+      const { rowValues, rowTotalsByMeasure } = computeNodeMetrics(node);
+      node.values = rowValues;
+      node.rowTotals = rowTotalsByMeasure;
+      node.childrenCount = node.childrenKeys.size;
+    }
+
+    // Build flattened hierarchical tree in pre-order traversal
+    const tree = [];
+    const traverseHierarchy = (parentKey) => {
+      const siblings = Array.from(hierarchyNodesMap.values())
+        .filter(n => n.parentKey === parentKey)
+        .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
+
+      for (const node of siblings) {
+        tree.push({
+          key: node.key,
+          parentKey: node.parentKey,
+          label: node.label,
+          dimension: node.dimension,
+          level: node.level,
+          rowParts: node.rowParts,
+          isLeaf: node.isLeaf,
+          hasChildren: node.hasChildren,
+          childrenCount: node.childrenCount,
+          values: node.values,
+          rowTotals: node.rowTotals
+        });
+        if (node.hasChildren) {
+          traverseHierarchy(node.key);
+        }
+      }
+    };
+    traverseHierarchy(null);
+
+    // Leaf Matrix (for flat/chart views and backwards compatibility)
+    const matrix = tree.filter(n => n.isLeaf).map(n => ({
+      rowKey: n.key,
+      parentKey: n.parentKey,
+      level: n.level,
+      rowParts: n.rowParts,
+      values: n.values,
+      rowTotals: n.rowTotals
+    }));
+
+    // Compute Grand Totals across all Level 0 roots
+    const rootNodes = tree.filter(n => n.level === 0);
+    const grandTotals = columnDefinitions.map((colDef, cIdx) => {
+      if (colDef.measure.aggregation === 'calc' && colDef.measure.formula) {
+        return this.evaluateFormula(filteredData, colDef.measure.formula);
+      }
+      if (['avg', 'average'].includes(colDef.measure.aggregation?.toLowerCase())) {
+        const allNums = filteredData.map(r => r[colDef.measure.field]).filter(v => typeof v === 'number');
+        return allNums.length ? Math.round((allNums.reduce((a, b) => a + b, 0) / allNums.length) * 100) / 100 : 0;
+      }
+      return Math.round(rootNodes.reduce((acc, r) => acc + (typeof r.values[cIdx] === 'number' ? r.values[cIdx] : 0), 0) * 100) / 100;
     });
 
     // Grand Grand Totals (Intersections)
-    const grandGrandTotals = validMeasures.map(m => {
+    const grandGrandTotals = validMeasures.map((m, mIdx) => {
       if (m.aggregation === 'calc' && m.formula) {
         return this.evaluateFormula(filteredData, m.formula);
       }
-      const allValues = filteredData.map(r => {
-        const v = r[m.field];
-        return typeof v === 'number' ? v : Number(v) || 0;
-      });
-      return this.computeAggregation(allValues, m);
+      if (['avg', 'average'].includes(m.aggregation?.toLowerCase())) {
+        const allNums = filteredData.map(r => r[m.field]).filter(v => typeof v === 'number');
+        return allNums.length ? Math.round((allNums.reduce((a, b) => a + b, 0) / allNums.length) * 100) / 100 : 0;
+      }
+      return Math.round(rootNodes.reduce((acc, r) => acc + (typeof r.rowTotals[mIdx] === 'number' ? r.rowTotals[mIdx] : 0), 0) * 100) / 100;
     });
 
     return {
@@ -160,8 +223,9 @@ class PivotEngine {
       columns,
       measures: validMeasures,
       columnDefinitions,
-      rowHeaders: sortedRowKeys.map(([k, parts]) => ({ rowKey: k, parts })),
+      rowHeaders: matrix.map(m => ({ rowKey: m.rowKey, parts: m.rowParts })),
       matrix,
+      tree,
       grandTotals,
       grandGrandTotals,
       rowCount: filteredData.length

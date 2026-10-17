@@ -5,7 +5,10 @@ export function FieldsPanel({
   slice = { rows: [], columns: [], measures: [], filters: [] },
   onSliceChange,
   onOpenCalculatedModal,
-  onOpenFilterModal
+  onOpenFilterModal,
+  activeTableName,
+  onClearActiveTable,
+  targetMode = 'table' // 'table' | 'chart'
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [dragOverZone, setDragOverZone] = useState(null); // 'rows' | 'columns' | 'measures' | 'filters'
@@ -19,6 +22,7 @@ export function FieldsPanel({
   // ----------------------------------------------------
   const handleDragStart = (e, itemData) => {
     e.dataTransfer.setData('application/json', JSON.stringify(itemData));
+    e.dataTransfer.setData('text/plain', itemData.name);
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -137,6 +141,27 @@ export function FieldsPanel({
 
   return (
     <aside className="fields-sidebar">
+      {/* Active Table / Chart Indicator Badge */}
+      <div style={{ padding: '8px 12px', background: '#0f172a', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '9px', color: targetMode === 'chart' ? '#a855f7' : '#38bdf8', fontWeight: 700, letterSpacing: '0.4px' }}>
+            {targetMode === 'chart' ? '📈 CONFIGURANDO GRÁFICO:' : '📋 EDITANDO TABLA:'}
+          </span>
+          <span style={{ fontSize: '12px', color: '#f8fafc', fontWeight: 600 }}>{activeTableName || (targetMode === 'chart' ? 'Gráfico 1' : 'Tabla 1')}</span>
+        </div>
+        {onClearActiveTable && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: '10px', padding: '2px 6px', color: '#f87171' }}
+            onClick={onClearActiveTable}
+            title={targetMode === 'chart' ? "Vaciar este gráfico y dejarlo en blanco" : "Vaciar esta tabla y dejarla en blanco"}
+          >
+            🧹 Vaciar
+          </button>
+        )}
+      </div>
+
       {/* Search and Available Fields */}
       <div className="sidebar-section">
         <div className="sidebar-title">
@@ -162,7 +187,7 @@ export function FieldsPanel({
               className="field-chip draggable-chip"
               draggable="true"
               onDragStart={(e) => handleDragStart(e, { name: f.name, type: f.type, sourceZone: 'available' })}
-              title="Arrastra este campo a Filas, Columnas o Valores"
+              title={targetMode === 'chart' ? "Arrastra este campo al Eje X, Series o Valores" : "Arrastra este campo a Filas, Columnas o Valores"}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ cursor: 'grab', color: '#94a3b8' }}>⠿</span>
@@ -174,23 +199,23 @@ export function FieldsPanel({
                 </span>
                 <button
                   type="button"
-                  title="Agregar a Filas"
+                  title={targetMode === 'chart' ? "Agregar al Eje X (Categorías)" : "Agregar a Filas"}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#64748b' }}
                   onClick={() => addFieldToZone('rows', f)}
                 >
-                  +Fila
+                  {targetMode === 'chart' ? '+Eje X' : '+Fila'}
                 </button>
                 <button
                   type="button"
-                  title="Agregar a Columnas"
+                  title={targetMode === 'chart' ? "Agregar a Desglose (Series Secundarias)" : "Agregar a Columnas"}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#64748b' }}
                   onClick={() => addFieldToZone('columns', f)}
                 >
-                  +Col
+                  {targetMode === 'chart' ? '+Serie' : '+Col'}
                 </button>
                 <button
                   type="button"
-                  title="Agregar a Valores"
+                  title="Agregar a Valores / Métricas"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '10px', color: '#2563eb', fontWeight: 600 }}
                   onClick={() => addFieldToZone('measures', f)}
                 >
@@ -221,7 +246,7 @@ export function FieldsPanel({
           onDrop={(e) => handleDrop(e, 'columns')}
         >
           <div className="zone-header">
-            <span>↔ Columnas ({slice.columns.length})</span>
+            <span>{targetMode === 'chart' ? `↔ Desglose / Series (${slice.columns.length})` : `↔ Columnas (${slice.columns.length})`}</span>
             {dragOverZone === 'columns' && <span style={{ fontSize: '10px', color: '#2563eb' }}>Suelta aquí</span>}
           </div>
           <div className="zone-items-container">
@@ -251,7 +276,7 @@ export function FieldsPanel({
             ))}
             {slice.columns.length === 0 && (
               <div className="drop-zone-placeholder">
-                Arrastra columnas aquí
+                {targetMode === 'chart' ? 'Arrastra series secundarias' : 'Arrastra columnas aquí'}
               </div>
             )}
           </div>
@@ -265,7 +290,7 @@ export function FieldsPanel({
           onDrop={(e) => handleDrop(e, 'rows')}
         >
           <div className="zone-header">
-            <span>↕ Filas ({slice.rows.length})</span>
+            <span>{targetMode === 'chart' ? `↕ Eje X / Categorías (${slice.rows.length})` : `↕ Filas (${slice.rows.length})`}</span>
             {dragOverZone === 'rows' && <span style={{ fontSize: '10px', color: '#2563eb' }}>Suelta aquí</span>}
           </div>
           <div className="zone-items-container">
@@ -295,7 +320,7 @@ export function FieldsPanel({
             ))}
             {slice.rows.length === 0 && (
               <div className="drop-zone-placeholder">
-                Arrastra filas aquí
+                {targetMode === 'chart' ? 'Arrastra eje X / categorías' : 'Arrastra filas aquí'}
               </div>
             )}
           </div>
@@ -310,7 +335,7 @@ export function FieldsPanel({
           onDrop={(e) => handleDrop(e, 'measures')}
         >
           <div className="zone-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span>∑ Valores / Métricas ({slice.measures.length})</span>
+            <span>{targetMode === 'chart' ? `∑ Valores a Graficar (${slice.measures.length})` : `∑ Valores / Métricas (${slice.measures.length})`}</span>
             <button
               type="button"
               className="btn btn-light"

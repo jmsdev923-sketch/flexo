@@ -43,9 +43,18 @@ const activeSessions = new Map();
 function createConnector(sourceType, config = {}) {
   switch (sourceType.toLowerCase()) {
     case 'csv':
+    case 'file-sales': {
+      const rootCsv = path.join(__dirname, '..', 'data.csv');
+      const demoCsv = path.join(__dirname, 'data', 'sales_demo.csv');
+      const targetPath = config.filePath || (fs.existsSync(rootCsv) ? rootCsv : demoCsv);
+      return new FileConnector({
+        filePath: targetPath,
+        type: 'csv',
+        ...config
+      });
+    }
     case 'json':
     case 'file':
-    case 'file-sales':
       return new FileConnector(config.filePath ? config : {
         filePath: path.join(__dirname, 'data', 'sales_demo.json'),
         type: 'json'
