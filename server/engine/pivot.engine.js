@@ -193,29 +193,33 @@ class PivotEngine {
       rowTotals: n.rowTotals
     }));
 
-    // Compute Grand Totals across all Level 0 roots
-    const rootNodes = tree.filter(n => n.level === 0);
-    const grandTotals = columnDefinitions.map((colDef, cIdx) => {
-      if (colDef.measure.aggregation === 'calc' && colDef.measure.formula) {
-        return this.evaluateFormula(filteredData, colDef.measure.formula);
+    // Compute Grand Totals across all column definitions
+    const grandTotals = columnDefinitions.map((colDef) => {
+      const m = colDef.measure;
+      const agg = (m.aggregation || 'sum').toLowerCase();
+
+      if (agg === 'calc' && m.formula) {
+        return this.evaluateFormula(filteredData, m.formula);
       }
-      if (['avg', 'average'].includes(colDef.measure.aggregation?.toLowerCase())) {
-        const allNums = filteredData.map(r => r[colDef.measure.field]).filter(v => typeof v === 'number');
-        return allNums.length ? Math.round((allNums.reduce((a, b) => a + b, 0) / allNums.length) * 100) / 100 : 0;
-      }
-      return Math.round(rootNodes.reduce((acc, r) => acc + (typeof r.values[cIdx] === 'number' ? r.values[cIdx] : 0), 0) * 100) / 100;
+
+      // Filter data for this column's members if column dimensions exist
+      const colRecords = filteredData.filter(record => {
+        if (!colDef.parts || colDef.parts.length === 0 || colDef.colKey === 'Total') return true;
+        return columns.every((cField, idx) => String(record[cField] ?? '(blank)') === colDef.parts[idx]);
+      });
+
+      const values = colRecords.map(r => r[m.field]).filter(v => v !== undefined && v !== null).map(v => typeof v === 'number' ? v : Number(v)).filter(v => !isNaN(v));
+      return this.computeAggregation(values, m);
     });
 
     // Grand Grand Totals (Intersections)
-    const grandGrandTotals = validMeasures.map((m, mIdx) => {
-      if (m.aggregation === 'calc' && m.formula) {
+    const grandGrandTotals = validMeasures.map((m) => {
+      const agg = (m.aggregation || 'sum').toLowerCase();
+      if (agg === 'calc' && m.formula) {
         return this.evaluateFormula(filteredData, m.formula);
       }
-      if (['avg', 'average'].includes(m.aggregation?.toLowerCase())) {
-        const allNums = filteredData.map(r => r[m.field]).filter(v => typeof v === 'number');
-        return allNums.length ? Math.round((allNums.reduce((a, b) => a + b, 0) / allNums.length) * 100) / 100 : 0;
-      }
-      return Math.round(rootNodes.reduce((acc, r) => acc + (typeof r.rowTotals[mIdx] === 'number' ? r.rowTotals[mIdx] : 0), 0) * 100) / 100;
+      const values = filteredData.map(r => r[m.field]).filter(v => v !== undefined && v !== null).map(v => typeof v === 'number' ? v : Number(v)).filter(v => !isNaN(v));
+      return this.computeAggregation(values, m);
     });
 
     return {
@@ -278,9 +282,15 @@ class PivotEngine {
   static evaluateFormula(records, formula) {
     if (!records || records.length === 0) return 0;
 
-    // Identify referenced fields in formula e.g. [sales], [profit], [subCategory]
+    // Identify referenced fields in formula e.g. [sales], [profit] or bare field names
     const fieldTokens = formula.match(/\[([^\]]+)\]/g) || [];
-    const fields = fieldTokens.map(t => t.replace(/^\[|\]$/g, '').trim());
+    let fields = fieldTokens.map(t => t.replace(/^\[|\]$/g, '').trim());
+
+    if (fields.length === 0 && records[0]) {
+      const words = formula.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+      const recordKeys = Object.keys(records[0]);
+      fields = words.filter(w => recordKeys.includes(w));
+    }
 
     // Sum up the referenced fields across all records in the bucket
     const sums = {};
@@ -291,12 +301,12 @@ class PivotEngine {
       }, 0);
     });
 
-    // Replace [field] with its aggregated numeric value
+    // Replace [field] or bare field with its aggregated numeric value
     let evalString = formula;
     fields.forEach(f => {
       const escapedF = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\[${escapedF}\\]`, 'g');
-      evalString = evalString.replace(regex, sums[f] ?? 0);
+      evalString = evalString.replace(new RegExp(`\\[${escapedF}\\]`, 'g'), sums[f] ?? 0);
+      evalString = evalString.replace(new RegExp(`\\b${escapedF}\\b`, 'g'), sums[f] ?? 0);
     });
 
     try {

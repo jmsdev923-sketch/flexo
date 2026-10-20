@@ -1,0 +1,41 @@
+[
+  {
+    "id": "src-1792524084528",
+    "name": "data",
+    "category": "Archivos",
+    "type": "file",
+    "description": "Archivo: data.csv",
+    "config": {
+      "filePath": "C:\\DEV_JMS\\flex_analytics\\server\\uploads\\1792524079008-data.csv",
+      "fileName": "data.csv",
+      "fileType": "csv",
+      "originalName": "data.csv"
+    }
+  },
+  {
+    "id": "src-1792524411129",
+    "name": "data sep",
+    "category": "Archivos",
+    "type": "file",
+    "description": "Archivo: data.csv",
+    "config": {
+      "filePath": "C:\\DEV_JMS\\flex_analytics\\server\\uploads\\1792524405678-data.csv",
+      "fileName": "data.csv",
+      "fileType": "csv",
+      "originalName": "data.csv"
+    }
+  },
+  {
+    "id": "src-1792525913829",
+    "name": "data",
+    "category": "Archivos",
+    "type": "file",
+    "description": "Archivo: data.csv",
+    "config": {
+      "filePath": "C:\\DEV_JMS\\flex_analytics\\server\\uploads\\1792525908086-data.csv",
+      "fileName": "data.csv",
+      "fileType": "csv",
+      "originalName": "data.csv"
+    }
+  }
+]

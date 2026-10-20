@@ -1,7 +1,7 @@
 # flex_analytics (v1.5 PRO - Enterprise Visual Customization & RBAC)
 
-> Motor y componente web de tablas dinámicas y analítica multidimensional inspirado en **Flexmonster**, construido sobre **Node.js** y **React**.
-> **Ubicación del Proyecto:** `C:\DEV_JMS\flex_analytics`
+> Motor y componente web de tablas dinámicas y analítica multidimensional inspirado en **Flexmonster**, construido sobre **Node.js** y **Nuxt 3 (Vue 3 + Pinia)**.
+> **Ubicación del Proyecto:** `C:\DEV_JMS\flex_analytics` (Respaldo React en `client_backup/`)
 
 ---
 

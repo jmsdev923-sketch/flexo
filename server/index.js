@@ -41,24 +41,19 @@ const upload = multer({ storage });
 const activeSessions = new Map();
 
 function createConnector(sourceType, config = {}) {
-  switch (sourceType.toLowerCase()) {
+  switch ((sourceType || '').toLowerCase()) {
     case 'csv':
-    case 'file-sales': {
-      const rootCsv = path.join(__dirname, '..', 'data.csv');
-      const demoCsv = path.join(__dirname, 'data', 'sales_demo.csv');
-      const targetPath = config.filePath || (fs.existsSync(rootCsv) ? rootCsv : demoCsv);
-      return new FileConnector({
-        filePath: targetPath,
-        type: 'csv',
-        ...config
-      });
-    }
-    case 'json':
     case 'file':
-      return new FileConnector(config.filePath ? config : {
-        filePath: path.join(__dirname, 'data', 'sales_demo.json'),
-        type: 'json'
-      });
+    case 'excel':
+    case 'xlsx':
+    case 'xls':
+    case 'json':
+      if (config.filePath && fs.existsSync(config.filePath)) {
+        const ext = path.extname(config.filePath).toLowerCase();
+        const fType = (ext === '.xlsx' || ext === '.xls') ? 'xlsx' : (ext === '.csv' ? 'csv' : (config.fileType || config.type || 'json'));
+        return new FileConnector({ ...config, filePath: config.filePath, type: fType });
+      }
+      throw new Error('Archivo de datos no encontrado en la ruta especificada.');
     case 'sql':
     case 'sql-db':
     case 'mssql':
@@ -75,12 +70,8 @@ function createConnector(sourceType, config = {}) {
     case 'olap':
     case 'olap-ssas':
       return new OLAPConnector(config);
-    case 'demo':
     default:
-      return new FileConnector({
-        filePath: path.join(__dirname, 'data', 'sales_demo.json'),
-        type: 'json'
-      });
+      throw new Error(`Tipo de fuente no soportado: ${sourceType}`);
   }
 }
 
@@ -149,7 +140,7 @@ app.delete('/api/users/:id', (req, res) => {
 });
 
 // ----------------------------------------------------
-// SAVED REPORTS & TEMPLATES Endpoints
+// SAVED REPORTS & PRELIMINARY REPORTS (RBAC) Endpoints
 // ----------------------------------------------------
 app.get('/api/reports', (req, res) => {
   const username = req.query.username || 'admin';
@@ -166,9 +157,20 @@ app.post('/api/reports', (req, res) => {
   }
 });
 
+app.put('/api/reports/:id', (req, res) => {
+  try {
+    const username = req.body.username || req.query.username || 'admin';
+    const updated = ReportService.updateReport(req.params.id, req.body, username);
+    res.json({ success: true, report: updated });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 app.delete('/api/reports/:id', (req, res) => {
   try {
-    ReportService.deleteReport(req.params.id);
+    const username = req.query.username || 'admin';
+    ReportService.deleteReport(req.params.id, username);
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
@@ -196,7 +198,19 @@ app.get('/api/sources', (req, res) => {
 
 app.post('/api/sources', (req, res) => {
   try {
+    const username = req.body.username || req.query.username || 'admin';
+    let user;
+    try {
+      user = AuthService.login(username);
+    } catch {
+      user = { role: 'admin', allowedSources: ['*'] };
+    }
     const newSource = AuthService.addDataSource(req.body);
+    if (user && user.role !== 'admin' && user.allowedSources && !user.allowedSources.includes('*')) {
+      if (!user.allowedSources.includes(newSource.id)) {
+        user.allowedSources.push(newSource.id);
+      }
+    }
     res.json({ success: true, source: newSource });
   } catch (error) {
     res.status(400).json({ success: false, error: error.message });
@@ -205,6 +219,19 @@ app.post('/api/sources', (req, res) => {
 
 app.delete('/api/sources/:id', (req, res) => {
   try {
+    const username = req.query.username || 'admin';
+    let user;
+    try {
+      user = AuthService.login(username);
+    } catch {
+      user = { role: 'analyst' };
+    }
+    if (user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Acceso denegado: Solo el Administrador puede eliminar fuentes de información del catálogo.'
+      });
+    }
     AuthService.deleteDataSource(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -252,13 +279,10 @@ app.post('/api/connect', async (req, res) => {
 app.get('/api/distinct/:field', async (req, res) => {
   const { field } = req.params;
   const { sessionId = 'default' } = req.query;
-  let session = activeSessions.get(sessionId);
+  const session = activeSessions.get(sessionId);
 
-  if (!session) {
-    const demo = createConnector('demo');
-    const data = await demo.fetchData();
-    session = { connector: demo, data };
-    activeSessions.set(sessionId, session);
+  if (!session || !session.data) {
+    return res.json({ success: true, field, values: [] });
   }
 
   const values = PivotEngine.getDistinctValues(session.data, field);
@@ -268,13 +292,13 @@ app.get('/api/distinct/:field', async (req, res) => {
 app.post('/api/pivot', async (req, res) => {
   try {
     const { sessionId = 'default', slice = {} } = req.body;
-    let session = activeSessions.get(sessionId);
+    const session = activeSessions.get(sessionId);
 
-    if (!session) {
-      const demoConnector = createConnector('demo');
-      const data = await demoConnector.fetchData();
-      session = { connector: demoConnector, data };
-      activeSessions.set(sessionId, session);
+    if (!session || !session.data) {
+      return res.json({
+        success: true,
+        result: null
+      });
     }
 
     const pivotResult = PivotEngine.process(session.data, slice);
@@ -295,9 +319,10 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 
     const ext = path.extname(req.file.originalname).toLowerCase();
+    const fileType = (ext === '.xlsx' || ext === '.xls') ? 'xlsx' : (ext === '.csv' ? 'csv' : 'json');
     const connector = new FileConnector({
       filePath: req.file.path,
-      type: ext === '.csv' ? 'csv' : 'json'
+      type: fileType
     });
 
     await connector.connect();
@@ -310,12 +335,15 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     res.json({
       success: true,
       sessionId,
+      filePath: req.file.path,
       fileName: req.file.originalname,
+      fileType,
       recordCount: data.length,
       schema,
       preview: data.slice(0, 10)
     });
   } catch (error) {
+    console.error('Upload Error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

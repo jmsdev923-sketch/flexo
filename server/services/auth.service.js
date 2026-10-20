@@ -20,25 +20,57 @@ const ALL_TABLE_STYLES = [
   { id: 'dark_contrast', name: '🌙 Modo Oscuro Ejecutivo', tier: 'advanced' }
 ];
 
+const fs = require('fs');
+const path = require('path');
+
+const SOURCES_FILE = path.join(__dirname, '..', 'data', 'sources.json');
+
+function loadSourcesFromDisk() {
+  try {
+    if (fs.existsSync(SOURCES_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SOURCES_FILE, 'utf-8'));
+      if (Array.isArray(parsed)) {
+        return parsed.filter(s => s && s.id !== 'demo');
+      }
+    }
+  } catch (err) {
+    console.error('Error loading sources from disk:', err);
+  }
+  return [];
+}
+
+let dataSources = loadSourcesFromDisk();
+
+function saveSourcesToDisk() {
+  try {
+    const dataDir = path.dirname(SOURCES_FILE);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(SOURCES_FILE, JSON.stringify(dataSources, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving sources to disk:', err);
+  }
+}
+
 let users = [
   {
     id: 'usr-1',
     username: 'admin',
     name: 'Juan Pérez (Administrador)',
     role: 'admin',
-    assignedSource: 'demo',
+    assignedSource: null,
     allowedSources: ['*'],
-    allowedChartStyles: ['*'], // Can access all chart styles
-    allowedTableStyles: ['*']  // Can access all table styles
+    allowedChartStyles: ['*'],
+    allowedTableStyles: ['*']
   },
   {
     id: 'usr-2',
     username: 'analista_ventas',
     name: 'Laura Gómez (Analista Ventas)',
     role: 'analyst',
-    assignedSource: 'file-sales', // Single locked source assigned by administrator
-    allowedSources: ['file-sales'],
-    // Restricted to standard visual styles (cannot access advanced radar or heatmap)
+    assignedSource: null,
+    allowedSources: ['*'],
     allowedChartStyles: ['bar_vertical', 'bar_horizontal', 'line_curve', 'donut_pie'],
     allowedTableStyles: ['classic_grid', 'striped_zebra', 'clean_minimal']
   },
@@ -47,49 +79,10 @@ let users = [
     username: 'analista_bi',
     name: 'Carlos Ruiz (Analista BI)',
     role: 'analyst',
-    assignedSource: 'olap-ssas', // Single locked source assigned by administrator
-    allowedSources: ['olap-ssas'],
-    // Allowed all chart styles including advanced radar, but limited table styles
+    assignedSource: null,
+    allowedSources: ['*'],
     allowedChartStyles: ['bar_vertical', 'line_curve', 'area_stacked', 'radar_polar'],
     allowedTableStyles: ['classic_grid', 'heatmap_intensity', 'dark_contrast']
-  }
-];
-
-let dataSources = [
-  {
-    id: 'demo',
-    name: 'Demo Empresarial (Ventas Globales)',
-    category: 'Demo',
-    type: 'demo',
-    description: 'Dataset transaccional listo para análisis de ventas y rentabilidad'
-  },
-  {
-    id: 'file-sales',
-    name: 'Ventas Históricas CSV',
-    category: 'Archivos',
-    type: 'file',
-    description: 'Archivo local de transacciones retail consolidado'
-  },
-  {
-    id: 'olap-ssas',
-    name: 'Cubo SSAS - AdventureWorks',
-    category: 'OLAP',
-    type: 'olap',
-    description: 'Cubo multidimensional de ventas con jerarquías de tiempo y producto'
-  },
-  {
-    id: 'sql-db',
-    name: 'PostgreSQL - Data Warehouse',
-    category: 'Relacional',
-    type: 'sql',
-    description: 'Base de datos transaccional con esquemas de facturación'
-  },
-  {
-    id: 'nosql-events',
-    name: 'Elasticsearch - Logs & Telemetría',
-    category: 'NoSQL',
-    type: 'nosql',
-    description: 'Índices analíticos de eventos y conversiones de usuarios'
   }
 ];
 
@@ -167,27 +160,30 @@ class AuthService {
 
   static getDataSources(user) {
     if (!user || user.role === 'admin' || (user.allowedSources && user.allowedSources.includes('*'))) {
-      return dataSources;
+      return dataSources.filter(s => s && s.id !== 'demo');
     }
-    const assigned = user.assignedSource || (user.allowedSources && user.allowedSources[0]) || 'demo';
-    return dataSources.filter(s => s.id === assigned);
+    const assigned = user.assignedSource || (user.allowedSources && user.allowedSources[0]);
+    if (!assigned) return dataSources.filter(s => s && s.id !== 'demo');
+    return dataSources.filter(s => s && s.id === assigned && s.id !== 'demo');
   }
 
   static addDataSource(source) {
     const newSource = {
       id: source.id || `src-${Date.now()}`,
       name: source.name,
-      category: source.category || 'Personalizada',
-      type: source.type || 'sql',
-      description: source.description || 'Fuente registrada por el administrador',
+      category: source.category || 'Archivos',
+      type: source.type || 'file',
+      description: source.description || 'Fuente registrada por el usuario',
       config: source.config || {}
     };
     dataSources.push(newSource);
+    saveSourcesToDisk();
     return newSource;
   }
 
   static deleteDataSource(sourceId) {
     dataSources = dataSources.filter(s => s.id !== sourceId);
+    saveSourcesToDisk();
     return true;
   }
 }

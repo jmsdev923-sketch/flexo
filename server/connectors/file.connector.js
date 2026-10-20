@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const XLSX = require('xlsx');
 const BaseConnector = require('./base.connector');
 
 /**
@@ -14,7 +15,15 @@ class FileConnector extends BaseConnector {
     super(config);
     this.filePath = config.filePath;
     this.url = config.url || '';
-    this.type = config.type || (this.filePath ? path.extname(this.filePath).replace('.', '').toLowerCase() : 'json');
+    const fileExt = this.filePath ? path.extname(this.filePath).replace('.', '').toLowerCase() : '';
+    const rawType = (config.type || '').toLowerCase();
+    if (rawType === 'excel' || rawType === 'xlsx' || rawType === 'xls' || fileExt === 'xlsx' || fileExt === 'xls') {
+      this.type = 'xlsx';
+    } else if (rawType === 'csv' || fileExt === 'csv') {
+      this.type = 'csv';
+    } else {
+      this.type = config.type || (fileExt || 'json');
+    }
     this.cachedData = config.rawData || null;
 
     // API Authentication
@@ -65,6 +74,21 @@ class FileConnector extends BaseConnector {
         this.cachedData = await response.json();
       }
       return this.cachedData;
+    }
+
+    // Read local Excel file (.xlsx, .xls)
+    if (this.type === 'xlsx' || this.type === 'xls' || (this.filePath && /\.(xlsx|xls)$/i.test(this.filePath))) {
+      try {
+        const workbook = XLSX.readFile(this.filePath, { cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        if (!firstSheetName) return [];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+        this.cachedData = jsonData;
+        return this.cachedData;
+      } catch (err) {
+        throw new Error(`Error al leer archivo Excel: ${err.message}`);
+      }
     }
 
     // Read local JSON file
