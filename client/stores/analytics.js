@@ -7,7 +7,8 @@ import {
   connectSource,
   computePivot,
   uploadDataFile,
-  updateReport
+  updateReport,
+  fetchDistinctValues
 } from '../services/api';
 
 function createSmartDefaultSlice(fields = []) {
@@ -111,7 +112,7 @@ export const useAnalyticsStore = defineStore('analytics', {
       }
     ],
     activeTableId: 'table-1',
-    tableLayoutView: 'single',
+    tableLayoutView: 'grid',
 
     // Charts
     charts: [
@@ -137,7 +138,8 @@ export const useAnalyticsStore = defineStore('analytics', {
     conditionalRules: [],
 
     // Global layout & active view
-    currentView: 'grid', // 'grid' | 'chart' | 'combined'
+    currentView: 'combined', // 'combined' | 'grid' | 'chart'
+    lastFocusedWidgetType: 'table', // 'table' | 'chart'
     isSidebarOpen: true,
 
     // Modals
@@ -152,6 +154,12 @@ export const useAnalyticsStore = defineStore('analytics', {
 
     // KPI Cards
     kpis: [],
+
+    // Global Dashboard Slicers & Filters
+    globalFilters: [], // Array<{ field: string, values: string[] }>
+    slicerDimensions: ['vendedor', 'grupo', 'ciudad'],
+    slicerDistinctMap: {}, // { [field]: Array<string> }
+    isSlicersPanelOpen: true,
 
     // Current Loaded Report (Preliminary or Saved View)
     currentLoadedReport: null,
@@ -356,7 +364,16 @@ export const useAnalyticsStore = defineStore('analytics', {
       }
 
       try {
-        const res = await computePivot(slice, this.sessionId);
+        const mergedFilters = [...(slice.filters || [])];
+        for (const gf of this.globalFilters) {
+          if (gf.values && gf.values.length > 0) {
+            const idx = mergedFilters.findIndex(f => f.field === gf.field);
+            if (idx >= 0) mergedFilters[idx] = { field: gf.field, values: gf.values };
+            else mergedFilters.push({ field: gf.field, values: gf.values });
+          }
+        }
+        const executionSlice = { ...slice, filters: mergedFilters };
+        const res = await computePivot(executionSlice, this.sessionId);
         if (res.success) {
           targetTable.result = res.result;
         }
@@ -384,7 +401,16 @@ export const useAnalyticsStore = defineStore('analytics', {
       }
 
       try {
-        const res = await computePivot(slice, this.sessionId);
+        const mergedFilters = [...(slice.filters || [])];
+        for (const gf of this.globalFilters) {
+          if (gf.values && gf.values.length > 0) {
+            const idx = mergedFilters.findIndex(f => f.field === gf.field);
+            if (idx >= 0) mergedFilters[idx] = { field: gf.field, values: gf.values };
+            else mergedFilters.push({ field: gf.field, values: gf.values });
+          }
+        }
+        const executionSlice = { ...slice, filters: mergedFilters };
+        const res = await computePivot(executionSlice, this.sessionId);
         if (res.success) {
           targetChart.result = res.result;
         }
@@ -411,6 +437,7 @@ export const useAnalyticsStore = defineStore('analytics', {
 
       this.tables.push(newTable);
       this.activeTableId = newId;
+      this.lastFocusedWidgetType = 'table';
 
       if (!isBlank) {
         this.computePivotForTable(newId, newSlice);
@@ -436,6 +463,7 @@ export const useAnalyticsStore = defineStore('analytics', {
 
       this.tables.push(duplicated);
       this.activeTableId = newId;
+      this.lastFocusedWidgetType = 'table';
     },
 
     deleteTable(tableId) {
@@ -467,6 +495,7 @@ export const useAnalyticsStore = defineStore('analytics', {
 
       this.charts.push(newChart);
       this.activeChartId = newId;
+      this.lastFocusedWidgetType = 'chart';
 
       if (!isBlank) {
         this.computePivotForChart(newId, newSlice);
@@ -507,7 +536,7 @@ export const useAnalyticsStore = defineStore('analytics', {
       if (c) c.title = newTitle;
     },
 
-    async addKpi({ title, field, aggregation = 'sum', format = 'currency', color = '#2563eb', icon = '🎯', subtitle = '' }) {
+    async addKpi({ title, field, aggregation = 'sum', format = 'currency', color = '#2563eb', icon = '🎯', subtitle = '', initialValue = null }) {
       const newId = `kpi-${Date.now()}`;
       const newKpi = {
         id: newId,
@@ -518,11 +547,13 @@ export const useAnalyticsStore = defineStore('analytics', {
         color,
         icon,
         subtitle: subtitle || `${aggregation.toUpperCase()} de ${field}`,
-        value: 0,
+        value: (initialValue !== null && initialValue !== undefined && !isNaN(initialValue)) ? Number(initialValue) : 0,
         loading: false
       };
       this.kpis.push(newKpi);
-      await this.computeKpi(newId);
+      if (initialValue === null || initialValue === undefined || isNaN(initialValue)) {
+        await this.computeKpi(newId);
+      }
       return newKpi;
     },
 
@@ -536,11 +567,17 @@ export const useAnalyticsStore = defineStore('analytics', {
 
       kpi.loading = true;
       try {
+        const mergedFilters = [];
+        for (const gf of this.globalFilters) {
+          if (gf.values && gf.values.length > 0) {
+            mergedFilters.push({ field: gf.field, values: gf.values });
+          }
+        }
         const slice = {
           rows: [],
           columns: [],
           measures: [{ field: kpi.field, aggregation: kpi.aggregation, caption: 'kpi_val' }],
-          filters: []
+          filters: mergedFilters
         };
         const res = await computePivot(slice, this.sessionId);
         if (res.success && res.result) {
@@ -557,6 +594,222 @@ export const useAnalyticsStore = defineStore('analytics', {
     async computeAllKpis() {
       for (const kpi of this.kpis) {
         await this.computeKpi(kpi.id);
+      }
+    },
+
+    // Global Slicers & Filters Actions
+    async toggleGlobalFilter(field, val) {
+      const existing = this.globalFilters.find(f => f.field === field);
+      if (!existing) {
+        this.globalFilters.push({ field, values: [val] });
+      } else {
+        const idx = existing.values.indexOf(val);
+        if (idx >= 0) {
+          existing.values.splice(idx, 1);
+          if (existing.values.length === 0) {
+            this.globalFilters = this.globalFilters.filter(f => f.field !== field);
+          }
+        } else {
+          existing.values.push(val);
+        }
+      }
+      await this.recomputeDashboard();
+    },
+
+    async clearGlobalFilter(field) {
+      this.globalFilters = this.globalFilters.filter(f => f.field !== field);
+      await this.recomputeDashboard();
+    },
+
+    async clearAllGlobalFilters() {
+      this.globalFilters = [];
+      await this.recomputeDashboard();
+    },
+
+    async recomputeDashboard() {
+      // 1. Recompute all KPIs
+      await this.computeAllKpis();
+
+      // 2. Recompute all Charts
+      for (const chr of this.charts) {
+        await this.computePivotForChart(chr.id, chr.slice);
+      }
+
+      // 3. Recompute all Tables
+      for (const tbl of this.tables) {
+        await this.computePivotForTable(tbl.id, tbl.slice);
+      }
+    },
+
+    async loadSlicerOptions(field) {
+      if (!field) return [];
+      if (this.slicerDistinctMap[field]) return this.slicerDistinctMap[field];
+      try {
+        const res = await fetchDistinctValues(field, this.sessionId);
+        if (res.success && Array.isArray(res.values)) {
+          this.slicerDistinctMap[field] = res.values;
+          return res.values;
+        }
+      } catch (err) {
+        console.error(`Error fetching slicer options for ${field}:`, err);
+      }
+      return [];
+    },
+
+    async buildExecutiveSalesDashboard() {
+      this.loading = true;
+      try {
+        // 1. Executive KPI Cards (Matching Image 1 & 2)
+        this.kpis = [
+          {
+            id: 'kpi-ventas',
+            title: 'Monto de Ventas',
+            field: 'venta',
+            aggregation: 'sum',
+            format: 'currency',
+            color: '#1e40af',
+            icon: '💰',
+            subtitle: 'Facturación Consolidada',
+            value: 0,
+            loading: false
+          },
+          {
+            id: 'kpi-costos',
+            title: 'Costo de Ventas',
+            field: 'costo',
+            aggregation: 'sum',
+            format: 'currency',
+            color: '#059669',
+            icon: '📦',
+            subtitle: 'Costo Total Mercancía',
+            value: 0,
+            loading: false
+          },
+          {
+            id: 'kpi-ticket',
+            title: 'Ticket Promedio',
+            field: 'venta',
+            aggregation: 'avg',
+            format: 'currency',
+            color: '#d97706',
+            icon: '🎯',
+            subtitle: 'Promedio por Operación',
+            value: 0,
+            loading: false
+          },
+          {
+            id: 'kpi-pedidos',
+            title: 'Líneas Facturadas',
+            field: 'venta',
+            aggregation: 'count',
+            format: 'integer',
+            color: '#7c3aed',
+            icon: '⚡',
+            subtitle: 'Total Documentos',
+            value: 0,
+            loading: false
+          }
+        ];
+
+        // 2. Analytical Charts
+        this.charts = [
+          {
+            id: 'chart-cat',
+            title: 'Ventas por Categoría / Grupo ($)',
+            chartType: 'bar_horizontal',
+            slice: {
+              rows: ['grupo'],
+              columns: [],
+              measures: [{ field: 'venta', aggregation: 'sum', caption: 'Venta Total' }],
+              filters: []
+            },
+            currencyFormat: true,
+            result: null,
+            loading: false
+          },
+          {
+            id: 'chart-vend',
+            title: 'Ventas por Vendedor ($)',
+            chartType: 'bar_horizontal',
+            slice: {
+              rows: ['vendedor'],
+              columns: [],
+              measures: [{ field: 'venta', aggregation: 'sum', caption: 'Venta Vendedor' }],
+              filters: []
+            },
+            currencyFormat: true,
+            result: null,
+            loading: false
+          },
+          {
+            id: 'chart-ciudad',
+            title: 'Distribución por Ciudad (%)',
+            chartType: 'donut_pie',
+            slice: {
+              rows: ['ciudad'],
+              columns: [],
+              measures: [{ field: 'venta', aggregation: 'sum', caption: 'Venta' }],
+              filters: []
+            },
+            currencyFormat: true,
+            result: null,
+            loading: false
+          }
+        ];
+        this.activeChartId = 'chart-cat';
+
+        // 3. Tables with in-cell data bars
+        this.tables = [
+          {
+            id: 'table-top-clientes',
+            title: 'Top Clientes (Ranking Facturación)',
+            slice: {
+              rows: ['cliente'],
+              columns: [],
+              measures: [{ field: 'venta', aggregation: 'sum', caption: 'Base Imponible / Venta' }],
+              filters: []
+            },
+            tableStyle: 'data_bars',
+            currencyFormat: true,
+            result: null,
+            loading: false
+          },
+          {
+            id: 'table-resumen-grupo',
+            title: 'Resumen Consolidado por Grupo y Costo',
+            slice: {
+              rows: ['grupo'],
+              columns: [],
+              measures: [
+                { field: 'venta', aggregation: 'sum', caption: 'Venta Total' },
+                { field: 'costo', aggregation: 'sum', caption: 'Costo Total' }
+              ],
+              filters: []
+            },
+            tableStyle: 'classic_grid',
+            currencyFormat: true,
+            result: null,
+            loading: false
+          }
+        ];
+        this.activeTableId = 'table-top-clientes';
+
+        // 4. Set view to combined dashboard
+        this.currentView = 'combined';
+
+        // 5. Preload slicer distinct options for top dimensions
+        await Promise.all([
+          this.loadSlicerOptions('vendedor'),
+          this.loadSlicerOptions('grupo'),
+          this.loadSlicerOptions('ciudad')
+        ]);
+
+        // 6. Recalculate everything
+        await this.recomputeDashboard();
+      } catch (err) {
+        console.error('Error building executive dashboard:', err);
+      } finally {
+        this.loading = false;
       }
     },
 

@@ -1,7 +1,7 @@
 <template>
-  <section class="kpi-section-container">
-    <!-- 1. Populated State: Horizontal Grid of KPI Cards -->
-    <div v-if="store.kpis.length > 0" class="kpi-grid">
+  <section v-if="store.kpis.length > 0" class="kpi-section-container">
+    <!-- Populated State: Horizontal Grid of KPI Cards -->
+    <div class="kpi-grid">
       <div
         v-for="kpi in store.kpis"
         :key="kpi.id"
@@ -60,33 +60,6 @@
       >
         <span style="font-size: 20px;">➕</span>
         <span style="font-size: 11px; font-weight: 700;">+ Agregar KPI</span>
-      </button>
-    </div>
-
-    <!-- 2. Zero State (When source is connected but no KPIs yet) -->
-    <div
-      v-else-if="store.fields.length > 0"
-      class="kpi-empty-strip"
-    >
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 20px;">🎯</span>
-        <div>
-          <strong style="font-size: 12px; color: #1e293b; display: block;">
-            Tarjetas de Indicadores Clave (KPI)
-          </strong>
-          <span style="font-size: 11px; color: #64748b;">
-            Resume totales, promedios o conteos ejecutivos de tu archivo o base de datos en tiempo real.
-          </span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        class="btn btn-primary"
-        style="font-size: 11px; padding: 5px 12px; font-weight: 600;"
-        @click="store.isCreateKpiModalOpen = true"
-      >
-        🎯 + Crear Primer KPI
       </button>
     </div>
   </section>
@@ -155,7 +128,9 @@ function formatValue(val, format) {
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  justify-content: space-between;
+  aspect-ratio: 2.2 / 1;
+  min-height: 95px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -272,14 +247,4 @@ function formatValue(val, format) {
   color: #2563eb;
 }
 
-/* Empty strip */
-.kpi-empty-strip {
-  background: white;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 </style>

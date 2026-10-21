@@ -29,9 +29,10 @@ class PivotEngine {
     if (filters && filters.length > 0) {
       filteredData = data.filter(record => {
         return filters.every(f => {
-          if (!f.selectedValues || f.selectedValues.length === 0) return true;
+          const list = f.selectedValues || f.values || f.include;
+          if (!list || list.length === 0) return true;
           const val = String(record[f.field] ?? '');
-          return f.selectedValues.includes(val);
+          return list.includes(val);
         });
       });
     }
@@ -136,10 +137,16 @@ class PivotEngine {
       });
 
       const rowTotalsByMeasure = validMeasures.map((m, mIdx) => {
+        if (sortedColKeys.length === 1) {
+          const list = cellBuckets.get(`${node.key}####${sortedColKeys[0][0]}####${mIdx}`) || [];
+          return this.computeAggregation(list, m);
+        }
         const allRowValues = [];
         sortedColKeys.forEach(([cKey]) => {
           const list = cellBuckets.get(`${node.key}####${cKey}####${mIdx}`) || [];
-          allRowValues.push(...list);
+          for (let i = 0; i < list.length; i++) {
+            allRowValues.push(list[i]);
+          }
         });
         return this.computeAggregation(allRowValues, m);
       });
@@ -203,12 +210,21 @@ class PivotEngine {
       }
 
       // Filter data for this column's members if column dimensions exist
-      const colRecords = filteredData.filter(record => {
-        if (!colDef.parts || colDef.parts.length === 0 || colDef.colKey === 'Total') return true;
-        return columns.every((cField, idx) => String(record[cField] ?? '(blank)') === colDef.parts[idx]);
-      });
+      const isTotalCol = !colDef.parts || colDef.parts.length === 0 || colDef.colKey === 'Total' || columns.length === 0;
+      const colRecords = isTotalCol
+        ? filteredData
+        : filteredData.filter(record => {
+            return columns.every((cField, idx) => String(record[cField] ?? '(blank)') === colDef.parts[idx]);
+          });
 
-      const values = colRecords.map(r => r[m.field]).filter(v => v !== undefined && v !== null).map(v => typeof v === 'number' ? v : Number(v)).filter(v => !isNaN(v));
+      const values = [];
+      for (let i = 0; i < colRecords.length; i++) {
+        const v = colRecords[i][m.field];
+        if (v !== undefined && v !== null) {
+          const num = typeof v === 'number' ? v : Number(v);
+          if (!isNaN(num)) values.push(num);
+        }
+      }
       return this.computeAggregation(values, m);
     });
 
@@ -218,7 +234,14 @@ class PivotEngine {
       if (agg === 'calc' && m.formula) {
         return this.evaluateFormula(filteredData, m.formula);
       }
-      const values = filteredData.map(r => r[m.field]).filter(v => v !== undefined && v !== null).map(v => typeof v === 'number' ? v : Number(v)).filter(v => !isNaN(v));
+      const values = [];
+      for (let i = 0; i < filteredData.length; i++) {
+        const v = filteredData[i][m.field];
+        if (v !== undefined && v !== null) {
+          const num = typeof v === 'number' ? v : Number(v);
+          if (!isNaN(num)) values.push(num);
+        }
+      }
       return this.computeAggregation(values, m);
     });
 
@@ -254,24 +277,60 @@ class PivotEngine {
       case 'distinct_count':
       case 'unique':
         return new Set(values).size;
-      case 'sum':
-        return Math.round(values.reduce((acc, curr) => acc + (typeof curr === 'number' ? curr : 0), 0) * 100) / 100;
+      case 'sum': {
+        let sum = 0;
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          if (typeof v === 'number') sum += v;
+        }
+        return Math.round(sum * 100) / 100;
+      }
       case 'avg':
       case 'average': {
-        const nums = values.filter(v => typeof v === 'number');
-        if (nums.length === 0) return 0;
-        return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          if (typeof v === 'number') {
+            sum += v;
+            count++;
+          }
+        }
+        if (count === 0) return 0;
+        return Math.round((sum / count) * 100) / 100;
       }
       case 'min': {
-        const nums = values.filter(v => typeof v === 'number');
-        return nums.length ? Math.min(...nums) : 0;
+        let minVal = Infinity;
+        let found = false;
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          if (typeof v === 'number' && !isNaN(v)) {
+            if (v < minVal) minVal = v;
+            found = true;
+          }
+        }
+        return found ? minVal : 0;
       }
       case 'max': {
-        const nums = values.filter(v => typeof v === 'number');
-        return nums.length ? Math.max(...nums) : 0;
+        let maxVal = -Infinity;
+        let found = false;
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          if (typeof v === 'number' && !isNaN(v)) {
+            if (v > maxVal) maxVal = v;
+            found = true;
+          }
+        }
+        return found ? maxVal : 0;
       }
-      default:
-        return values.reduce((acc, curr) => acc + (typeof curr === 'number' ? curr : 0), 0);
+      default: {
+        let sum = 0;
+        for (let i = 0; i < values.length; i++) {
+          const v = values[i];
+          if (typeof v === 'number') sum += v;
+        }
+        return Math.round(sum * 100) / 100;
+      }
     }
   }
 

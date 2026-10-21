@@ -52,6 +52,7 @@
             title="Estilo visual de esta tabla"
           >
             <option value="classic_grid">Cuadrícula Clásica</option>
+            <option value="data_bars">📊 Barras de Datos en Celda</option>
             <option value="striped_zebra">Filas Cebradas</option>
             <option value="clean_minimal">Minimalista</option>
             <option value="heatmap_intensity">Mapa de Calor</option>
@@ -155,175 +156,6 @@
           >
             🗑️
           </button>
-        </div>
-      </div>
-
-      <!-- Mini Drop Zones for this Table -->
-      <div class="builder-zones-strip">
-        <!-- ZONE 1: ROWS -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'rows' }"
-          @dragover.prevent="handleDragOver('rows')"
-          @dragleave="handleDragLeave('rows')"
-          @drop.prevent="handleDrop('rows')"
-          title="Arrastra dimensiones aquí para agrupar en filas"
-        >
-          <div class="builder-zone-header">
-            <span>↓ Filas ({{ slice.rows?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #94a3b8;">Jerarquía</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="rName in slice.rows"
-              :key="rName"
-              class="builder-chip draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: rName, sourceZone: 'rows' })"
-            >
-              <span style="cursor: grab; color: #94a3b8;">⠿</span>
-              <span>{{ rName }}</span>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('rows', rName)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.rows || slice.rows.length === 0" class="builder-placeholder">
-              Suelta filas aquí
-            </span>
-          </div>
-        </div>
-
-        <!-- ZONE 2: COLUMNS -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'columns' }"
-          @dragover.prevent="handleDragOver('columns')"
-          @dragleave="handleDragLeave('columns')"
-          @drop.prevent="handleDrop('columns')"
-          title="Arrastra dimensiones aquí para crear columnas dinámicas"
-        >
-          <div class="builder-zone-header">
-            <span>↔ Columnas ({{ slice.columns?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #94a3b8;">Pivote</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="cName in slice.columns"
-              :key="cName"
-              class="builder-chip draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: cName, sourceZone: 'columns' })"
-            >
-              <span style="cursor: grab; color: #94a3b8;">⠿</span>
-              <span>{{ cName }}</span>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('columns', cName)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.columns || slice.columns.length === 0" class="builder-placeholder">
-              Suelta columnas aquí
-            </span>
-          </div>
-        </div>
-
-        <!-- ZONE 3: MEASURES -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'measures' }"
-          @dragover.prevent="handleDragOver('measures')"
-          @dragleave="handleDragLeave('measures')"
-          @drop.prevent="handleDrop('measures')"
-          title="Arrastra métricas numéricas aquí y decide el cálculo"
-        >
-          <div class="builder-zone-header">
-            <span>∑ Valores ({{ slice.measures?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #166534; font-weight: 600;">Cálculo</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="(m, mIdx) in slice.measures"
-              :key="`${m.field}-${mIdx}`"
-              class="builder-chip measure draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: m.field, sourceZone: 'measures' })"
-            >
-              <span style="cursor: grab; color: #86efac;">⠿</span>
-              <span style="font-weight: 600;">{{ m.caption || m.field }}</span>
-              <select
-                class="measure-agg-select"
-                :value="m.aggregation || 'sum'"
-                @change="updateMeasureAggregation(mIdx, $event.target.value)"
-                title="Selecciona la función de cálculo"
-              >
-                <option v-for="opt in aggOptions" :key="opt.id" :value="opt.id">
-                  {{ opt.label }}
-                </option>
-              </select>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('measures', m.field)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.measures || slice.measures.length === 0" class="builder-placeholder">
-              Suelta métricas aquí
-            </span>
-          </div>
-        </div>
-
-        <!-- ZONE 4: FILTERS -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'filters' }"
-          @dragover.prevent="handleDragOver('filters')"
-          @dragleave="handleDragLeave('filters')"
-          @drop.prevent="handleDrop('filters')"
-          title="Filtros específicos para esta tabla"
-        >
-          <div class="builder-zone-header">
-            <span>🔍 Filtros ({{ slice.filters?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #94a3b8;">Filtros</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="f in slice.filters"
-              :key="f.field"
-              class="builder-chip filter draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: f.field, sourceZone: 'filters' })"
-            >
-              <span style="cursor: grab; color: #94a3b8;">⠿</span>
-              <span>{{ f.field }}</span>
-              <button
-                type="button"
-                style="background: none; border: none; cursor: pointer; font-size: 11px; padding: 0 2px;"
-                title="Configurar miembros filtrados"
-                @click="store.filterModalField = f.field"
-              >
-                ⚙️
-              </button>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('filters', f.field)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.filters || slice.filters.length === 0" class="builder-placeholder">
-              Suelta filtros aquí
-            </span>
-          </div>
         </div>
       </div>
     </div>
@@ -536,9 +368,21 @@
                 v-for="(val, vIdx) in node.values"
                 :key="vIdx"
                 class="cell-val"
+                :class="{ 'cell-databar-td': tableStyle === 'data_bars' }"
                 :style="getCellStyle(val, columnDefinitions[vIdx]?.measureField)"
               >
-                {{ formatValue(val, columnDefinitions[vIdx]) }}
+                <div v-if="tableStyle === 'data_bars' && typeof val === 'number'" class="cell-databar-wrapper">
+                  <div
+                    class="cell-databar-fill"
+                    :style="{ width: `${getColPercent(val, vIdx)}%` }"
+                  />
+                  <span class="cell-databar-text">
+                    {{ formatValue(val, columnDefinitions[vIdx]) }}
+                  </span>
+                </div>
+                <template v-else>
+                  {{ formatValue(val, columnDefinitions[vIdx]) }}
+                </template>
               </td>
             </tr>
           </template>
@@ -571,9 +415,21 @@
                 v-for="(val, vIdx) in row.values"
                 :key="vIdx"
                 class="cell-val"
+                :class="{ 'cell-databar-td': tableStyle === 'data_bars' }"
                 :style="getCellStyle(val, columnDefinitions[vIdx]?.measureField)"
               >
-                {{ formatValue(val, columnDefinitions[vIdx]) }}
+                <div v-if="tableStyle === 'data_bars' && typeof val === 'number'" class="cell-databar-wrapper">
+                  <div
+                    class="cell-databar-fill"
+                    :style="{ width: `${getColPercent(val, vIdx)}%` }"
+                  />
+                  <span class="cell-databar-text">
+                    {{ formatValue(val, columnDefinitions[vIdx]) }}
+                  </span>
+                </div>
+                <template v-else>
+                  {{ formatValue(val, columnDefinitions[vIdx]) }}
+                </template>
               </td>
             </tr>
           </template>
@@ -990,8 +846,14 @@ const visibleTreeNodes = computed(() => {
 // Tabular pagination & suppression
 const filteredMatrix = computed(() => {
   const query = searchQuery.value.toLowerCase().trim();
-  if (!query) return matrix.value;
-  return matrix.value.filter(r => (r.rowParts || []).some(p => String(p).toLowerCase().includes(query)));
+  let list = matrix.value || [];
+  if (query) {
+    list = list.filter(r => (r.rowParts || []).some(p => String(p).toLowerCase().includes(query)));
+  }
+  if (props.tableStyle === 'data_bars') {
+    list = [...list].sort((a, b) => (Number(b.values?.[0]) || 0) - (Number(a.values?.[0]) || 0));
+  }
+  return list;
 });
 
 const totalMatrixRows = computed(() => filteredMatrix.value.length);
@@ -1016,4 +878,66 @@ const totalItems = computed(() => isTreeEffective.value ? totalTreeRoots.value :
 const totalPages = computed(() => isTreeEffective.value ? totalTreePages.value : totalMatrixPages.value);
 const startItem = computed(() => totalItems.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1);
 const endItem = computed(() => Math.min(currentPage.value * pageSize.value, totalItems.value));
+
+function getColMax(vIdx) {
+  let max = 0;
+  if (isTreeEffective.value) {
+    for (const node of visibleTreeNodes.value) {
+      const v = Number(node.values?.[vIdx]);
+      if (!isNaN(v) && v > max) max = v;
+    }
+  } else {
+    for (const row of currentMatrixRows.value) {
+      const v = Number(row.values?.[vIdx]);
+      if (!isNaN(v) && v > max) max = v;
+    }
+  }
+  return max > 0 ? max : 1;
+}
+
+function getColPercent(val, vIdx) {
+  if (val === null || val === undefined || isNaN(val)) return 0;
+  const num = Number(val);
+  if (num <= 0) return 0;
+  const max = getColMax(vIdx);
+  return Math.min(100, Math.round((num / max) * 100));
+}
 </script>
+
+<style scoped>
+.cell-databar-td {
+  padding: 3px 6px !important;
+}
+
+.cell-databar-wrapper {
+  position: relative;
+  width: 100%;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(241, 245, 249, 0.45);
+}
+
+.cell-databar-fill {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.4) 0%, rgba(30, 64, 175, 0.75) 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  pointer-events: none;
+}
+
+.cell-databar-text {
+  position: relative;
+  z-index: 2;
+  font-weight: 700;
+  font-size: 11.5px;
+  color: #0f172a;
+  padding-right: 4px;
+}
+</style>

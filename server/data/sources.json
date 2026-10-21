@@ -37,5 +37,31 @@
       "fileType": "csv",
       "originalName": "data.csv"
     }
+  },
+  {
+    "id": "src-1792538193411",
+    "name": "data_sep",
+    "category": "Archivos",
+    "type": "file",
+    "description": "Archivo: data.csv",
+    "config": {
+      "filePath": "C:\\DEV_JMS\\flex_analytics\\server\\uploads\\1792538189033-data.csv",
+      "fileName": "data.csv",
+      "fileType": "csv",
+      "originalName": "data.csv"
+    }
+  },
+  {
+    "id": "src-1792540721843",
+    "name": "data",
+    "category": "Archivos",
+    "type": "file",
+    "description": "Archivo: data.csv",
+    "config": {
+      "filePath": "C:\\DEV_JMS\\flex_analytics\\server\\uploads\\1792540717864-data.csv",
+      "fileName": "data.csv",
+      "fileType": "csv",
+      "originalName": "data.csv"
+    }
   }
 ]

@@ -7,8 +7,8 @@
         :key="c.id"
         class="table-tab-item"
         :class="{ active: c.id === store.activeChartId }"
-        @click="store.activeChartId = c.id"
-        title="Haz clic para seleccionar y configurar este gráfico"
+        @click="handleSelectChart(c.id)"
+        title="Haz clic para seleccionar y vincular este gráfico al panel lateral"
       >
         <span style="font-size: 13px;">{{ chartIcons[c.chartType] || '📈' }}</span>
 
@@ -44,40 +44,30 @@
           ×
         </button>
       </div>
-
-      <!-- Add Chart Button -->
-      <button
-        type="button"
-        class="btn-add-table"
-        @click="store.addChart('blank')"
-        title="Crear un nuevo gráfico analítico en blanco"
-      >
-        <span>➕ Agregar Gráfico</span>
-      </button>
     </div>
 
-    <!-- Multi-Chart View Switcher (Single Chart vs All in Grid Panel) -->
+    <!-- Multi-Chart View Switcher (All in Grid Panel vs Single Chart Active) -->
     <div style="display: flex; align-items: center; gap: 8px;">
       <div style="display: flex; gap: 2px; background: #1e293b; padding: 2px; border-radius: 6px; border: 1px solid #334155;">
         <button
           type="button"
           class="btn"
-          :class="store.chartLayoutView === 'single' ? 'btn-primary' : 'btn-secondary'"
-          style="padding: 4px 8px; font-size: 11px;"
-          @click="store.chartLayoutView = 'single'"
-          title="Ver solo el gráfico activo seleccionado"
+          :class="store.chartLayoutView === 'grid' ? 'btn-primary' : 'btn-secondary'"
+          style="padding: 4px 10px; font-size: 11px; font-weight: 600;"
+          @click="store.chartLayoutView = 'grid'"
+          title="Ver todos los gráficos simultáneamente en el panel analítico"
         >
-          📈 Gráfico Activo
+          🔲 Ver Todos ({{ store.charts.length }})
         </button>
         <button
           type="button"
           class="btn"
-          :class="store.chartLayoutView === 'grid' ? 'btn-primary' : 'btn-secondary'"
-          style="padding: 4px 8px; font-size: 11px;"
-          @click="store.chartLayoutView = 'grid'"
-          title="Ver todos los gráficos simultáneamente en un panel analítico"
+          :class="store.chartLayoutView === 'single' ? 'btn-primary' : 'btn-secondary'"
+          style="padding: 4px 10px; font-size: 11px; font-weight: 600;"
+          @click="store.chartLayoutView = 'single'"
+          title="Ver únicamente el gráfico activo seleccionado"
         >
-          🔲 Panel de Gráficos ({{ store.charts.length }})
+          📈 Solo Activo
         </button>
       </div>
     </div>
@@ -106,6 +96,14 @@ function isBlank(c) {
   const r = c.slice?.rows?.length || 0;
   const m = c.slice?.measures?.length || 0;
   return r === 0 && m === 0;
+}
+
+function handleSelectChart(id) {
+  store.activeChartId = id;
+  const el = document.getElementById('chart-card-' + id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function startRename(c) {

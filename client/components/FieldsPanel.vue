@@ -440,7 +440,11 @@ function isDateField(fieldName) {
   return /fecha|date|dia|mes|year|ano|periodo|time/i.test(fieldName);
 }
 
-const isChartMode = computed(() => store.currentView === 'chart');
+const isChartMode = computed(() => {
+  if (store.currentView === 'chart') return true;
+  if (store.currentView === 'grid') return false;
+  return store.lastFocusedWidgetType === 'chart';
+});
 
 const activeTargetTitle = computed(() => {
   return isChartMode.value ? store.activeChart.title : store.activeTable.title;
@@ -453,7 +457,9 @@ const currentSlice = computed(() => {
 // Creator Button Handlers
 function handleCreateTable() {
   store.addTable('blank');
-  store.currentView = 'grid';
+  if (store.currentView !== 'combined') {
+    store.currentView = 'grid';
+  }
 }
 
 function handleCreateKpi() {
@@ -463,7 +469,9 @@ function handleCreateKpi() {
 
 function handleCreateChart() {
   store.addChart('blank');
-  store.currentView = 'chart';
+  if (store.currentView !== 'combined') {
+    store.currentView = 'chart';
+  }
 }
 
 function handleQuickKpiFromField(field) {

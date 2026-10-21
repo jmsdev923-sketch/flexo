@@ -89,130 +89,6 @@
           </button>
         </div>
       </div>
-
-      <!-- Mini Drop Zones for this Chart -->
-      <div class="builder-zones-strip">
-        <!-- ZONE 1: X-AXIS / CATEGORIES -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'rows' }"
-          @dragover.prevent="handleDragOver('rows')"
-          @dragleave="handleDragLeave('rows')"
-          @drop.prevent="handleDrop('rows')"
-          title="Arrastra dimensiones aquí para el Eje X / Categorías del gráfico"
-        >
-          <div class="builder-zone-header">
-            <span>🏷️ Eje X / Categorías ({{ slice.rows?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #2563eb; font-weight: 600;">Eje X</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="rName in slice.rows"
-              :key="rName"
-              class="builder-chip draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: rName, sourceZone: 'rows' })"
-            >
-              <span style="cursor: grab; color: #94a3b8;">⠿</span>
-              <span>{{ rName }}</span>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('rows', rName)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.rows || slice.rows.length === 0" class="builder-placeholder">
-              Suelta dimensión aquí
-            </span>
-          </div>
-        </div>
-
-        <!-- ZONE 2: SERIES BREAKDOWN -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'columns' }"
-          @dragover.prevent="handleDragOver('columns')"
-          @dragleave="handleDragLeave('columns')"
-          @drop.prevent="handleDrop('columns')"
-          title="Arrastra dimensiones aquí para desglosar en series múltiples"
-        >
-          <div class="builder-zone-header">
-            <span>↔ Desglose / Series ({{ slice.columns?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #94a3b8;">Opcional</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="cName in slice.columns"
-              :key="cName"
-              class="builder-chip draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: cName, sourceZone: 'columns' })"
-            >
-              <span style="cursor: grab; color: #94a3b8;">⠿</span>
-              <span>{{ cName }}</span>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('columns', cName)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.columns || slice.columns.length === 0" class="builder-placeholder">
-              Opcional
-            </span>
-          </div>
-        </div>
-
-        <!-- ZONE 3: VALUES / METRICS -->
-        <div
-          class="builder-zone-box"
-          :class="{ 'drag-over': dragOverZone === 'measures' }"
-          @dragover.prevent="handleDragOver('measures')"
-          @dragleave="handleDragLeave('measures')"
-          @drop.prevent="handleDrop('measures')"
-          title="Arrastra métricas numéricas aquí y decide el cálculo a graficar"
-        >
-          <div class="builder-zone-header">
-            <span>∑ Métrica / Valores ({{ slice.measures?.length || 0 }})</span>
-            <span style="font-size: 9px; color: #166534; font-weight: 600;">Cálculo</span>
-          </div>
-          <div class="builder-chips-wrap">
-            <div
-              v-for="(m, mIdx) in slice.measures"
-              :key="`${m.field}-${mIdx}`"
-              class="builder-chip measure draggable-chip"
-              draggable="true"
-              @dragstart="handleDragStart($event, { name: m.field, sourceZone: 'measures' })"
-            >
-              <span style="cursor: grab; color: #86efac;">⠿</span>
-              <span style="font-weight: 600;">{{ m.caption || m.field }}</span>
-              <select
-                class="measure-agg-select"
-                :value="m.aggregation || 'sum'"
-                @change="updateMeasureAggregation(mIdx, $event.target.value)"
-                title="Selecciona la función de cálculo"
-              >
-                <option v-for="opt in aggOptions" :key="opt.id" :value="opt.id">
-                  {{ opt.label }}
-                </option>
-              </select>
-              <button
-                type="button"
-                class="builder-chip-remove"
-                @click="removeFieldFromZone('measures', m.field)"
-              >
-                ×
-              </button>
-            </div>
-            <span v-if="!slice.measures || slice.measures.length === 0" class="builder-placeholder">
-              Suelta métrica aquí
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- 2. Blank Chart Interactive Canvas -->
@@ -305,8 +181,8 @@
       </div>
 
       <!-- 1. BARRAS VERTICALES -->
-      <div v-if="chartType === 'bar_vertical'" style="width: 100%; height: 340px;">
-        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="none">
+      <div v-if="chartType === 'bar_vertical'" class="chart-aspect-ratio-box">
+        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
           <g v-for="(pct, i) in [0, 0.25, 0.5, 0.75, 1]" :key="i">
             <line
               x1="60"
@@ -346,13 +222,26 @@
             >
               <title>{{ `${seriesLabels[sIdx]}: ${r.values?.[sIdx] || 0}` }}</title>
             </rect>
+
+            <text
+              v-for="(_, sIdx) in seriesCount"
+              :key="`val-${sIdx}`"
+              :x="getGroupX(rIdx) + sIdx * getBarWidth() + Math.max(getBarWidth() - 2, 4) / 2"
+              :y="Math.max(280 - Math.max(((r.values?.[sIdx] || 0) / maxVal) * 240, 2) - 4, 14)"
+              fill="#1e293b"
+              font-size="9"
+              font-weight="700"
+              text-anchor="middle"
+            >
+              {{ formatChartVal(r.values?.[sIdx] || 0) }}
+            </text>
           </g>
         </svg>
       </div>
 
       <!-- 2. BARRAS HORIZONTALES -->
-      <div v-else-if="chartType === 'bar_horizontal'" style="width: 100%; height: 360px;">
-        <svg width="100%" height="100%" viewBox="0 0 800 340">
+      <div v-else-if="chartType === 'bar_horizontal'" class="chart-aspect-ratio-box">
+        <svg width="100%" height="100%" viewBox="0 0 800 340" preserveAspectRatio="xMidYMid meet">
           <line x1="160" y1="20" x2="160" y2="310" stroke="#cbd5e1" stroke-width="1.5" />
           <g v-for="(r, rIdx) in chartRows" :key="rIdx">
             <text
@@ -392,8 +281,8 @@
       </div>
 
       <!-- 3. LÍNEAS / TENDENCIA -->
-      <div v-else-if="chartType === 'line_curve'" style="width: 100%; height: 340px;">
-        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="none">
+      <div v-else-if="chartType === 'line_curve'" class="chart-aspect-ratio-box">
+        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
           <line x1="60" y1="280" x2="780" y2="280" stroke="#cbd5e1" stroke-width="1.5" />
           <g v-for="(_, sIdx) in seriesCount" :key="sIdx">
             <polyline
@@ -419,8 +308,8 @@
       </div>
 
       <!-- 4. ÁREA APILADA / SOMBREADA -->
-      <div v-else-if="chartType === 'area_stacked'" style="width: 100%; height: 340px;">
-        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="none">
+      <div v-else-if="chartType === 'area_stacked'" class="chart-aspect-ratio-box">
+        <svg width="100%" height="100%" viewBox="0 0 800 320" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="areaGradientNuxt" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stop-color="#2563eb" stop-opacity="0.5" />
@@ -434,7 +323,7 @@
       </div>
 
       <!-- 5. DONUT / CIRCULAR -->
-      <div v-else-if="chartType === 'donut_pie'" style="display: flex; flex-direction: column; alignItems: center; width: 100%; gap: 20px;">
+      <div v-else-if="chartType === 'donut_pie' || chartType === 'donut'" style="display: flex; flex-direction: column; alignItems: center; width: 100%; gap: 20px;">
         <div style="position: relative; width: 260px; height: 260px;">
           <svg width="260" height="260" viewBox="0 0 260 260">
             <circle
@@ -736,7 +625,12 @@ const matrix = computed(() => props.pivotResult?.matrix || []);
 const columnDefinitions = computed(() => props.pivotResult?.columnDefinitions || []);
 const isBlank = computed(() => (!props.slice.rows || props.slice.rows.length === 0) && (!props.slice.measures || props.slice.measures.length === 0));
 
-const chartRows = computed(() => matrix.value.slice(0, 10));
+const chartRows = computed(() => {
+  const valid = matrix.value.filter(r => (r.rowParts?.[0] !== '(blank)' && r.rowParts?.[0] !== '') || (r.values?.[0] || 0) > 0);
+  const list = valid.length > 0 ? valid : matrix.value;
+  const sorted = [...list].sort((a, b) => (Number(b.values?.[0]) || 0) - (Number(a.values?.[0]) || 0));
+  return sorted.slice(0, 10);
+});
 const labels = computed(() => chartRows.value.map(r => r.rowParts?.join(' / ') || ''));
 
 const seriesCount = computed(() => Math.max(Math.min(columnDefinitions.value.length, 6), 1));
@@ -886,3 +780,16 @@ function getRadarPolygonPoints() {
   }).join(' ');
 }
 </script>
+
+<style scoped>
+.chart-aspect-ratio-box {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 260px;
+  max-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+</style>

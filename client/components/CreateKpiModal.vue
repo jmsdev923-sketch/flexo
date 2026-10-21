@@ -61,7 +61,7 @@
             <div class="form-row-2">
               <div class="input-group">
                 <label>Operación de Agregación:</label>
-                <select class="input-control" v-model="form.aggregation" @change="updateDefaultTitle">
+                <select class="input-control" v-model="form.aggregation" @change="onAggChange">
                   <option value="sum">∑ Suma Total</option>
                   <option value="avg">x̄ Promedio</option>
                   <option value="max">↑ Valor Máximo</option>
@@ -162,6 +162,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { useAnalyticsStore } from '~/stores/analytics';
+import { computePivot } from '~/services/api';
 
 const store = useAnalyticsStore();
 
@@ -173,6 +174,8 @@ function close() {
 }
 
 const isSubmitting = ref(false);
+const previewValue = ref(null);
+const isPreviewLoading = ref(false);
 
 const availableIcons = ['🎯', '💰', '📈', '📦', '🏆', '⭐', '⚡', '🏢'];
 const colorOptions = [
@@ -201,17 +204,51 @@ const availableFields = computed(() => {
   return store.fields || [];
 });
 
-watch(isOpen, (open) => {
+async function computePreview() {
+  if (!form.value.field) {
+    previewValue.value = null;
+    return;
+  }
+  try {
+    isPreviewLoading.value = true;
+    const slice = {
+      rows: [],
+      columns: [],
+      measures: [{ field: form.value.field, aggregation: form.value.aggregation, caption: 'preview_kpi' }],
+      filters: []
+    };
+    const res = await computePivot(slice, store.sessionId);
+    if (res && res.success && res.result) {
+      previewValue.value = res.result.grandGrandTotals?.[0] ?? res.result.grandTotals?.[0] ?? 0;
+    } else {
+      previewValue.value = 0;
+    }
+  } catch (err) {
+    console.error('Error computing preview KPI:', err);
+    previewValue.value = 0;
+  } finally {
+    isPreviewLoading.value = false;
+  }
+}
+
+watch(isOpen, async (open) => {
   if (open) {
     const pre = store.preselectedKpiField;
     const initialField = pre || (store.numberFields[0]?.name) || (store.fields[0]?.name) || '';
     form.value.field = initialField;
     updateDefaultTitle();
+    await computePreview();
   }
 });
 
 function onFieldChange() {
   updateDefaultTitle();
+  computePreview();
+}
+
+function onAggChange() {
+  updateDefaultTitle();
+  computePreview();
 }
 
 function updateDefaultTitle() {
@@ -233,25 +270,45 @@ function aggLabel(agg) {
 }
 
 function formatPreviewValue() {
-  if (form.value.format === 'currency') return '$ 145.280.000';
-  if (form.value.format === 'integer') return '1.840';
-  if (form.value.format === 'decimal') return '1.840,50';
-  if (form.value.format === 'percent') return '84,5 %';
-  return '145.280';
+  if (isPreviewLoading.value) return '⏳ Calculando...';
+  if (previewValue.value === null || previewValue.value === undefined || isNaN(previewValue.value)) return '—';
+  const num = Number(previewValue.value);
+
+  if (form.value.format === 'currency') {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      maximumFractionDigits: 0
+    }).format(num);
+  }
+
+  if (form.value.format === 'percent') {
+    return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 }).format(num)}%`;
+  }
+
+  if (form.value.format === 'decimal') {
+    return new Intl.NumberFormat('es-CO', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
+  }
+
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(num);
 }
 
 async function handleSave() {
   if (!form.value.field) return;
   try {
     isSubmitting.value = true;
-    await store.addKpi({
+    const newKpi = await store.addKpi({
       field: form.value.field,
       title: form.value.title.trim(),
       subtitle: form.value.subtitle.trim(),
       aggregation: form.value.aggregation,
       format: form.value.format,
       icon: form.value.icon,
-      color: form.value.color
+      color: form.value.color,
+      initialValue: previewValue.value
     });
     close();
   } catch (err) {

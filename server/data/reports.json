@@ -1,1 +1,108 @@
-[]
+[
+  {
+    "id": "rep-prelim-1792538448048",
+    "name": "Informe: Tabla Dinámica Principal",
+    "description": "sep_pi",
+    "isPreliminary": true,
+    "createdBy": "admin",
+    "createdAt": "2026-10-20T23:20:48.048Z",
+    "updatedAt": "2026-10-20T23:48:46.735Z",
+    "sourceId": "src-1792538193411",
+    "sourceName": "data_sep",
+    "sourceType": "demo",
+    "tableStyle": "classic_grid",
+    "chartType": "bar_vertical",
+    "slice": {
+      "rows": [
+        "cod_vendedor"
+      ],
+      "columns": [],
+      "measures": [
+        {
+          "field": "VENTA SIN IVA",
+          "aggregation": "sum",
+          "caption": "VENTA SIN IVA"
+        },
+        {
+          "field": "venta",
+          "aggregation": "sum",
+          "caption": "venta"
+        }
+      ],
+      "filters": []
+    },
+    "conditionalRules": [],
+    "kpis": [],
+    "permissions": {
+      "viewRoles": [
+        "*"
+      ],
+      "editRoles": [
+        "admin",
+        "analista_bi"
+      ]
+    }
+  },
+  {
+    "id": "rep-prelim-1792541458714",
+    "name": "Informe: vendedores",
+    "description": "",
+    "isPreliminary": true,
+    "createdBy": "admin",
+    "createdAt": "2026-10-21T00:10:58.714Z",
+    "updatedAt": "2026-10-21T00:10:58.714Z",
+    "sourceId": "src-1792538193411",
+    "sourceName": "data_sep",
+    "sourceType": "demo",
+    "tableStyle": "classic_grid",
+    "chartType": "bar_horizontal",
+    "slice": {
+      "rows": [],
+      "columns": [],
+      "measures": [],
+      "filters": []
+    },
+    "conditionalRules": [],
+    "kpis": [],
+    "permissions": {
+      "viewRoles": [
+        "*"
+      ],
+      "editRoles": [
+        "admin",
+        "analista_bi"
+      ]
+    }
+  },
+  {
+    "id": "rep-prelim-1792541468747",
+    "name": "2",
+    "description": "",
+    "isPreliminary": true,
+    "createdBy": "admin",
+    "createdAt": "2026-10-21T00:11:08.747Z",
+    "updatedAt": "2026-10-21T00:11:08.747Z",
+    "sourceId": "src-1792538193411",
+    "sourceName": "data_sep",
+    "sourceType": "demo",
+    "tableStyle": "classic_grid",
+    "chartType": "bar_horizontal",
+    "slice": {
+      "rows": [],
+      "columns": [],
+      "measures": [],
+      "filters": []
+    },
+    "conditionalRules": [],
+    "kpis": [],
+    "permissions": {
+      "viewRoles": [
+        "*"
+      ],
+      "editRoles": [
+        "admin",
+        "analista_bi"
+      ]
+    }
+  }
+]

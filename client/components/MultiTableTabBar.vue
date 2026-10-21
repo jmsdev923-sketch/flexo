@@ -7,10 +7,10 @@
         :key="t.id"
         class="table-tab-item"
         :class="{ active: t.id === store.activeTableId }"
-        @click="store.activeTableId = t.id"
-        title="Haz clic para seleccionar y editar esta tabla"
+        @click="handleSelectTable(t.id)"
+        title="Haz clic para seleccionar y vincular esta tabla al panel lateral"
       >
-        <span style="fontSize: 13px;">📊</span>
+        <span style="font-size: 13px;">📊</span>
 
         <input
           v-if="editingId === t.id"
@@ -44,40 +44,30 @@
           ×
         </button>
       </div>
-
-      <!-- Add Table Button -->
-      <button
-        type="button"
-        class="btn-add-table"
-        @click="store.addTable('blank')"
-        title="Crear una nueva tabla dinámica en blanco"
-      >
-        <span>➕ Agregar Tabla</span>
-      </button>
     </div>
 
-    <!-- Multi-Table View Switcher (Single Table vs All in Grid) -->
+    <!-- Multi-Table View Switcher (All in Grid Canvas vs Single Table Active) -->
     <div style="display: flex; align-items: center; gap: 8px;">
       <div style="display: flex; gap: 2px; background: #1e293b; padding: 2px; border-radius: 6px; border: 1px solid #334155;">
         <button
           type="button"
           class="btn"
-          :class="store.tableLayoutView === 'single' ? 'btn-primary' : 'btn-secondary'"
-          style="padding: 4px 8px; font-size: 11px;"
-          @click="store.tableLayoutView = 'single'"
-          title="Ver tabla activa seleccionada"
+          :class="store.tableLayoutView === 'grid' ? 'btn-primary' : 'btn-secondary'"
+          style="padding: 4px 10px; font-size: 11px; font-weight: 600;"
+          @click="store.tableLayoutView = 'grid'"
+          title="Ver todas las tablas simultáneamente en el lienzo de trabajo"
         >
-          📑 Tabla Activa
+          🔲 Ver Todas ({{ store.tables.length }})
         </button>
         <button
           type="button"
           class="btn"
-          :class="store.tableLayoutView === 'grid' ? 'btn-primary' : 'btn-secondary'"
-          style="padding: 4px 8px; font-size: 11px;"
-          @click="store.tableLayoutView = 'grid'"
-          title="Ver todas las tablas simultáneamente en cuadrícula comparativa"
+          :class="store.tableLayoutView === 'single' ? 'btn-primary' : 'btn-secondary'"
+          style="padding: 4px 10px; font-size: 11px; font-weight: 600;"
+          @click="store.tableLayoutView = 'single'"
+          title="Ver únicamente la tabla activa seleccionada"
         >
-          🔲 Comparar ({{ store.tables.length }})
+          📑 Solo Activa
         </button>
       </div>
     </div>
@@ -98,6 +88,14 @@ function isBlank(t) {
   const c = t.slice?.columns?.length || 0;
   const m = t.slice?.measures?.length || 0;
   return r === 0 && c === 0 && m === 0;
+}
+
+function handleSelectTable(id) {
+  store.activeTableId = id;
+  const el = document.getElementById('table-card-' + id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function startRename(t) {

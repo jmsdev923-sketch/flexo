@@ -83,38 +83,6 @@
       </div>
     </div>
 
-    <!-- Quick Creator Buttons Bar in Header -->
-    <div class="top-creator-buttons">
-      <button
-        type="button"
-        class="top-creator-btn btn-table"
-        @click="store.addTable('blank'); store.currentView = 'grid';"
-        title="Crear una nueva tabla dinámica desde cero"
-      >
-        <span>📊</span>
-        <span>+ Tabla</span>
-      </button>
-
-      <button
-        type="button"
-        class="top-creator-btn btn-kpi"
-        @click="store.preselectedKpiField = null; store.isCreateKpiModalOpen = true;"
-        title="Crear una nueva tarjeta KPI"
-      >
-        <span>🎯</span>
-        <span>+ KPI</span>
-      </button>
-
-      <button
-        type="button"
-        class="top-creator-btn btn-chart"
-        @click="store.addChart('blank'); store.currentView = 'chart';"
-        title="Crear un nuevo gráfico analítico desde cero"
-      >
-        <span>📈</span>
-        <span>+ Gráfico</span>
-      </button>
-    </div>
 
     <!-- Actions to Save Progress & View Saved Boards with RBAC -->
     <div class="top-progress-actions">
@@ -232,48 +200,6 @@ function handleSaveProgress() {
   color: #1d4ed8;
 }
 
-.top-creator-buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.top-creator-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.top-creator-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.btn-table:hover {
-  background: #eff6ff;
-  border-color: #3b82f6;
-  color: #1d4ed8;
-}
-
-.btn-kpi:hover {
-  background: #ecfdf5;
-  border-color: #10b981;
-  color: #047857;
-}
-
-.btn-chart:hover {
-  background: #f5f3ff;
-  border-color: #8b5cf6;
-  color: #6d28d9;
-}
 
 .top-progress-actions {
   display: flex;
